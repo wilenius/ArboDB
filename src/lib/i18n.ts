@@ -163,7 +163,8 @@ export const fi = {
 		boundarySources: {
 			drawn: 'Käsin piirretty',
 			imported: 'Tuotu tiedostosta',
-			survey: 'Mittausaineisto'
+			survey: 'Mittausaineisto',
+			mml: 'MML:n kiinteistörekisteri'
 		},
 		drawnWarning:
 			'Raja on piirretty käsin, joten se on suuntaa antava. Korvaa mittausaineistolla kun se on saatavilla.',
@@ -221,6 +222,27 @@ export const fi = {
 		opacity: 'Läpinäkyvyys',
 		visible: 'Näkyvissä',
 		imported: 'Taso tuotu'
+	},
+	property: {
+		title: 'Hae kiinteistörekisteristä',
+		help: 'Anna kiinteistötunnus, esimerkiksi 710-547-1-180. Palstan raja haetaan Maanmittauslaitoksen kiinteistörekisterikartasta.',
+		code: 'Kiinteistötunnus',
+		fetch: 'Hae',
+		fetching: 'Haetaan…',
+		found: (code: string) => `Kiinteistö ${code} löytyi.`,
+		parcels: (n: number) => `${n} ${n === 1 ? 'palsta' : 'palstaa'}`,
+		useLargest: 'Kiinteistössä on useita palstoja, joten rajaksi otetaan suurin. Muut näkyvät karttatasona.',
+		asBoundary: 'Käytä puutarhan rajana',
+		asLayer: 'Tuo karttatasoksi',
+		boundarySet: 'Raja haettu kiinteistörekisteristä. Tarkista se kartalta ja tallenna.',
+		attribution: '© Maanmittauslaitos, kiinteistörekisterikartta',
+		errors: {
+			invalidCode: 'Tarkista kiinteistötunnus. Muoto on 710-547-1-180 tai 71054700010180.',
+			noKey:
+				'MML:n API-avainta ei ole asetettu, joten kiinteistöhaku ei ole käytettävissä. Lisää avain .env-tiedostoon (PUBLIC_MML_API_KEY).',
+			notFound: 'Kiinteistötunnuksella ei löytynyt palstoja.',
+			failed: 'Yhteys Maanmittauslaitoksen rajapintaan epäonnistui.'
+		}
 	},
 	registry: {
 		title: 'Rekisteri',

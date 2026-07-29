@@ -8,6 +8,8 @@
 		worldFileCorners
 	} from '$lib/geo';
 	import { t } from '$lib/i18n';
+	import PropertyLookup from '$lib/components/PropertyLookup.svelte';
+	import type { ParcelResult } from '$lib/mml';
 	import type { MapLayer } from '$lib/types';
 
 	let layers = $state<MapLayer[]>([]);
@@ -131,6 +133,33 @@
 		}
 	}
 
+	/**
+	 * A property fetched from the register becomes an ordinary GeoJSON layer —
+	 * the same row shape as an imported file, so it draws, hides and fades like
+	 * everything else. The identifier is the name; there is nothing better to
+	 * call it, and it is what the owner will look for.
+	 */
+	async function importProperty(result: ParcelResult) {
+		busy = true;
+		error = '';
+		message = '';
+		try {
+			const { error: err } = await supabase.from('map_layers').insert({
+				name: `${t.property.code} ${result.presentation}`,
+				kind: 'geojson',
+				geojson: result.geojson,
+				sort_order: layers.length
+			});
+			if (err) throw err;
+			message = t.map.imported;
+			await load();
+		} catch {
+			error = t.errors.save;
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function update(layer: MapLayer, patch: Partial<MapLayer>) {
 		await supabase.from('map_layers').update(patch).eq('id', layer.id);
 		await load();
@@ -152,6 +181,14 @@
 
 	{#if message}<p class="notice notice-ok">{message}</p>{/if}
 	{#if error}<p class="notice notice-error">{error}</p>{/if}
+
+	<section class="card import">
+		<h2>{t.property.title}</h2>
+		<PropertyLookup onfound={importProperty} {busy} />
+		<p class="muted small boundary-hint">
+			{t.property.asBoundary}: <a href="/puutarhat">{t.garden.manage}</a>
+		</p>
+	</section>
 
 	<section class="card import">
 		<h2>{t.map.addLayer}</h2>
@@ -287,6 +324,11 @@
 
 	.import h2 {
 		margin-bottom: 0.4rem;
+	}
+
+	.boundary-hint {
+		margin: 0.2rem 0 0;
+		font-size: 0.75rem;
 	}
 
 	.bounds {

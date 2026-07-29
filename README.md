@@ -54,6 +54,21 @@ aerial view is unavailable.
 Vite inlines `PUBLIC_*` variables at build time, so restart `npm run dev` after
 editing `.env`.
 
+### Property boundaries
+
+The same key opens Maanmittauslaitos' property register (OGC API Features).
+Type a property identifier — `710-547-1-180`, or the register's own
+`71054700010180` — and the registered parcel outline comes back as WGS84
+GeoJSON. It can become a garden's boundary, which is far more accurate than
+tapping corners on the photo, or a plain map layer for a neighbouring plot.
+
+The service sends permissive CORS headers, so the lookup runs in the browser
+like every other query here. A property split across several detached parcels
+contributes its largest one to a boundary, since `gardens.boundary` is a single
+Polygon; as a map layer all of them are kept. Editing a fetched outline by hand
+demotes its `boundary_source` back to `drawn` — a nudged boundary is no longer
+the register's.
+
 ---
 
 ## What is built
@@ -90,6 +105,7 @@ src/lib/
   geo.ts             Haversine, bearings, EPSG:3067 ↔ WGS84, world files
   geolocation.svelte.ts   Watched device position
   i18n.ts            Every user-facing string, in Finnish
+  mml.ts             Property register lookup by kiinteistötunnus
   photos.ts          Client-side downscale before upload
   supabase.ts        Client + session store
   components/        Plate, SciName, ObservationCard, GrowthChart, MapView, …

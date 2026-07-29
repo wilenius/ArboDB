@@ -13,16 +13,19 @@
 		type Ring
 	} from '$lib/geo';
 	import { t } from '$lib/i18n';
-	import type { Garden } from '$lib/types';
+	import PropertyLookup from '$lib/components/PropertyLookup.svelte';
+	import type { ParcelResult } from '$lib/mml';
+	import type { BoundarySource, Garden } from '$lib/types';
 
 	/**
 	 * Gardens: the plot a planting stands in.
 	 *
-	 * The boundary is drawn by hand here — tap corners on the aerial photo —
-	 * because a rough outline that exists today beats surveyed data that
-	 * arrives some time next year. It is stored with its source recorded, so
-	 * replacing it with real survey data later is a swap, not an archaeology
-	 * exercise.
+	 * The boundary comes from one of two places. Type a property identifier and
+	 * Maanmittauslaitos' register hands over the registered outline; failing
+	 * that, tap corners on the aerial photo, because a rough outline that exists
+	 * today beats surveyed data that arrives some time next year. Either way the
+	 * source is stored alongside it, so a hand-drawn sketch is never mistaken
+	 * for the register's own geometry.
 	 */
 
 	let counts = $state<Record<string, number>>({});
@@ -32,9 +35,13 @@
 	let draftNotes = $state('');
 	let drawing = $state(false);
 	let ring = $state<Ring>([]);
+	/** Where the ring in the editor came from, tracked so saving records it. */
+	let draftSource = $state<BoundarySource>('drawn');
+	let parcelNote = $state('');
 	let busy = $state(false);
 	let error = $state('');
 	let message = $state('');
+	let mapView = $state<MapView | undefined>();
 
 	onMount(() => geo.start());
 	onDestroy(() => geo.stop());
@@ -69,6 +76,8 @@
 		draftName = garden.name;
 		draftNotes = garden.notes ?? '';
 		ring = polygonToRing(garden.boundary);
+		draftSource = garden.boundary_source;
+		parcelNote = '';
 		drawing = false;
 	}
 
@@ -78,6 +87,8 @@
 		draftName = '';
 		draftNotes = '';
 		ring = [];
+		draftSource = 'drawn';
+		parcelNote = '';
 		drawing = false;
 	}
 
@@ -86,21 +97,55 @@
 		creating = false;
 		drawing = false;
 		ring = [];
+		draftSource = 'drawn';
+		parcelNote = '';
 	}
 
 	const area = $derived(ring.length >= 3 ? ringAreaHectares(ring) : 0);
 	const perimeter = $derived(ring.length >= 3 ? ringPerimeterMeters(ring) : 0);
 
+	/**
+	 * Any hand edit demotes the boundary to 'drawn'. A registered outline with
+	 * one corner nudged is no longer the register's outline, and the whole
+	 * value of `boundary_source` is that it never overstates what it describes.
+	 */
+	function handEdited() {
+		draftSource = 'drawn';
+		parcelNote = '';
+	}
+
 	function addVertex(lat: number, lon: number) {
 		ring = [...ring, [lon, lat]];
+		handEdited();
 	}
 
 	function moveVertex(index: number, lat: number, lon: number) {
 		ring = ring.map((point, i) => (i === index ? ([lon, lat] as [number, number]) : point));
+		handEdited();
 	}
 
 	function undo() {
 		ring = ring.slice(0, -1);
+		handEdited();
+	}
+
+	function clearRing() {
+		ring = [];
+		handEdited();
+	}
+
+	/**
+	 * The boundary is a single Polygon, so a property spread over several
+	 * detached parcels contributes its largest one — and says so, rather than
+	 * silently dropping the rest.
+	 */
+	function useParcel(result: ParcelResult) {
+		ring = result.parcels[0].ring;
+		draftSource = 'mml';
+		drawing = false;
+		if (!draftName.trim()) draftName = result.presentation;
+		parcelNote = result.parcels.length > 1 ? t.property.useLargest : t.property.boundarySet;
+		mapView?.fitToRing(ring);
 	}
 
 	async function save() {
@@ -117,7 +162,7 @@
 			name: draftName.trim(),
 			notes: draftNotes.trim() || null,
 			boundary,
-			boundary_source: 'drawn' as const,
+			boundary_source: boundary ? draftSource : 'drawn',
 			center_lat: centre ? centre[1] : (editing?.center_lat ?? null),
 			center_lon: centre ? centre[0] : (editing?.center_lon ?? null)
 		};
@@ -199,6 +244,12 @@
 			</div>
 
 			<div class="boundary">
+				<PropertyLookup onfound={useParcel} {busy} />
+
+				{#if parcelNote}
+					<p class="notice notice-ok small">{parcelNote}</p>
+				{/if}
+
 				<div class="boundary-bar">
 					{#if drawing}
 						<button class="btn btn-sm btn-primary" type="button" onclick={() => (drawing = false)}>
@@ -207,7 +258,7 @@
 						<button class="btn btn-sm" type="button" onclick={undo} disabled={!ring.length}>
 							{t.garden.undo}
 						</button>
-						<button class="btn btn-sm" type="button" onclick={() => (ring = [])} disabled={!ring.length}>
+						<button class="btn btn-sm" type="button" onclick={clearRing} disabled={!ring.length}>
 							{t.garden.clear}
 						</button>
 					{:else}
@@ -222,6 +273,9 @@
 							· {t.garden.area} {t.garden.hectares(area)} · {t.garden.perimeter}
 							{Math.round(perimeter)} m
 						{/if}
+						{#if ring.length}
+							· {t.garden.boundarySources[draftSource]}
+						{/if}
 					</span>
 				</div>
 
@@ -231,6 +285,7 @@
 
 				<div class="map-box">
 					<MapView
+						bind:this={mapView}
 						garden={editing}
 						{drawing}
 						{ring}

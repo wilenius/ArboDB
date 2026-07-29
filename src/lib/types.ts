@@ -16,7 +16,7 @@ export interface Taxon {
 	notes: string | null;
 }
 
-export type BoundarySource = 'drawn' | 'imported' | 'survey';
+export type BoundarySource = 'drawn' | 'imported' | 'survey' | 'mml';
 
 export interface Garden {
 	id: string;

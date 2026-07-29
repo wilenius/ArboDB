@@ -376,21 +376,33 @@
 		}
 	});
 
-	function fitToContent() {
-		if (!map) return;
-		// Prefer the plot outline: it is the answer to "show me the garden",
-		// whereas the specimens only cover wherever planting has happened.
-		const boundaryRing = garden?.boundary?.coordinates?.[0];
-		const coords: [number, number][] =
-			boundaryRing && boundaryRing.length >= 3
-				? (boundaryRing as [number, number][])
-				: positioned.map((x) => [x.lon!, x.lat!] as [number, number]);
-		if (coords.length < 2) return;
+	function fitToCoords(coords: [number, number][], duration = 0) {
+		if (!map || coords.length < 2) return;
 		const bounds = coords.reduce(
 			(b, c) => b.extend(c),
 			new maplibregl.LngLatBounds(coords[0], coords[0])
 		);
-		map.fitBounds(bounds, { padding: 60, maxZoom: 18, duration: 0 });
+		map.fitBounds(bounds, { padding: 60, maxZoom: 18, duration });
+	}
+
+	function fitToContent() {
+		// Prefer the plot outline: it is the answer to "show me the garden",
+		// whereas the specimens only cover wherever planting has happened.
+		const boundaryRing = garden?.boundary?.coordinates?.[0];
+		fitToCoords(
+			boundaryRing && boundaryRing.length >= 3
+				? (boundaryRing as [number, number][])
+				: positioned.map((x) => [x.lon!, x.lat!] as [number, number])
+		);
+	}
+
+	/**
+	 * Frame a ring the caller has just produced. A boundary fetched from the
+	 * property register can be nowhere near where the map happens to be
+	 * pointing, and an outline off-screen reads as a lookup that did nothing.
+	 */
+	export function fitToRing(target: Ring) {
+		fitToCoords(target, 600);
 	}
 
 	export function flyTo(lat: number, lon: number, zoom = 19) {
