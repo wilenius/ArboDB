@@ -305,22 +305,27 @@ SERVICE_KEY=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
 KONG_PORT=$(grep '^KONG_HTTP_PORT=' .env | cut -d= -f2-)
 
 EMAIL=friend@example.fi
+
+# Prompts you to CHOOSE the password for this new account. -s means nothing is
+# echoed as you type, so it stays out of the terminal scrollback; typing it as a
+# command argument instead would put it in ~/.bash_history.
 read -rs -p "Password for $EMAIL: " PW; echo
 
-# Built with jq rather than pasted into the JSON: a password containing a quote,
-# a backslash or a dollar sign would otherwise be mangled by the shell or break
-# the request, and you would not find out until sign-in failed weeks later.
-BODY=$(jq -n --arg e "$EMAIL" --arg p "$PW" \
-  '{email:$e, password:$p, email_confirm:true}')
-
+# Piped into curl rather than passed as an argument, because arguments are
+# visible in `ps` to anyone else on the box while the command runs. jq does the
+# JSON quoting: a password containing a quote, a backslash or a dollar sign
+# would otherwise be mangled by the shell, and the only symptom would be a
+# sign-in that fails weeks later with "check your email and password".
+jq -n --arg e "$EMAIL" --arg p "$PW" \
+   '{email:$e, password:$p, email_confirm:true}' |
 curl -s -w '\nHTTP %{http_code}\n' -X POST \
   "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY" \
   -H "Content-Type: application/json" \
-  --data-binary "$BODY"
+  --data-binary @-
 
-unset PW BODY
+unset PW
 ```
 
 **Check that it printed `HTTP 200`** and a JSON user object with an `id`. Any
@@ -672,11 +677,12 @@ USER_ID=$(docker compose exec -T db psql -U postgres -d postgres -tA -c \
   "select id from auth.users where email = 'friend@example.fi';" | tr -d '\r')
 
 read -rs -p "New password: " PW; echo
+jq -n --arg p "$PW" '{password:$p}' |
 curl -s -w '\nHTTP %{http_code}\n' -X PUT \
   "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users/$USER_ID" \
   -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY" \
   -H "Content-Type: application/json" \
-  --data-binary "$(jq -n --arg p "$PW" '{password:$p}')"
+  --data-binary @-
 unset PW
 ```
 
