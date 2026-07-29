@@ -1,0 +1,8 @@
+node_modules
+/.svelte-kit
+/build
+/backup
+.env
+.DS_Store
+supabase/.temp
+supabase/.branches

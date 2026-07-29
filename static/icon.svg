@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Arboretum">
+	<rect width="64" height="64" rx="10" fill="#16241c" />
+	<!-- An accession plate on its stake: the app's own signature object. -->
+	<rect x="12" y="14" width="40" height="22" rx="2" fill="#2e5b3e" stroke="#b8862b" stroke-width="1.5" />
+	<line x1="17" y1="22" x2="41" y2="22" stroke="#eaeee4" stroke-width="2.5" stroke-linecap="round" />
+	<line x1="17" y1="29" x2="33" y2="29" stroke="#a9bda6" stroke-width="2" stroke-linecap="round" />
+	<line x1="32" y1="36" x2="32" y2="52" stroke="#b8862b" stroke-width="3" stroke-linecap="round" />
+	<path d="M32 52c-6 0-10-3-12-6" stroke="#7fae86" stroke-width="2.5" fill="none" stroke-linecap="round" />
+	<path d="M32 52c6 0 10-3 12-6" stroke="#7fae86" stroke-width="2.5" fill="none" stroke-linecap="round" />
+</svg>

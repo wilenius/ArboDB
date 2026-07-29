@@ -1,0 +1,251 @@
+<script lang="ts">
+	import SciName from '$lib/components/SciName.svelte';
+	import { fetchTaxa } from '$lib/data';
+	import { supabase, session } from '$lib/supabase';
+	import { scientificName } from '$lib/format';
+	import { t } from '$lib/i18n';
+	import type { Taxon } from '$lib/types';
+
+	let taxa = $state<Taxon[]>([]);
+	let counts = $state<Record<string, number>>({});
+	let query = $state('');
+	let editing = $state<Partial<Taxon> | null>(null);
+	let busy = $state(false);
+	let error = $state('');
+
+	$effect(() => {
+		if ($session) load();
+	});
+
+	async function load() {
+		try {
+			taxa = await fetchTaxa();
+			const { data } = await supabase.from('plantings').select('taxon_id');
+			const tally: Record<string, number> = {};
+			for (const row of data ?? []) tally[row.taxon_id] = (tally[row.taxon_id] ?? 0) + 1;
+			counts = tally;
+			error = '';
+		} catch {
+			error = t.errors.load;
+		}
+	}
+
+	const filtered = $derived(
+		query.trim()
+			? taxa.filter((x) => {
+					const q = query.toLowerCase();
+					return (
+						scientificName(x).toLowerCase().includes(q) ||
+						(x.name_fi ?? '').toLowerCase().includes(q)
+					);
+				})
+			: taxa
+	);
+
+	function blank(): Partial<Taxon> {
+		return {
+			genus: '',
+			species: '',
+			infraspecific_rank: '',
+			infraspecific_epithet: '',
+			cultivar: '',
+			name_fi: '',
+			mustila_url: '',
+			notes: ''
+		};
+	}
+
+	async function save(e: SubmitEvent) {
+		e.preventDefault();
+		if (!editing) return;
+		busy = true;
+		const clean = (v: unknown) => (v === '' || v == null ? null : String(v).trim());
+		const values = {
+			genus: String(editing.genus ?? '').trim(),
+			species: clean(editing.species),
+			infraspecific_rank: clean(editing.infraspecific_rank),
+			infraspecific_epithet: clean(editing.infraspecific_epithet),
+			cultivar: clean(editing.cultivar),
+			name_fi: clean(editing.name_fi),
+			mustila_url: clean(editing.mustila_url),
+			notes: clean(editing.notes)
+		};
+		try {
+			const { error: err } = editing.id
+				? await supabase.from('taxa').update(values).eq('id', editing.id)
+				: await supabase.from('taxa').insert(values);
+			if (err) throw err;
+			editing = null;
+			await load();
+		} catch {
+			error = t.errors.save;
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function remove(taxon: Taxon) {
+		if (counts[taxon.id]) {
+			error = 'Taksonilla on istutuksia, joten sitä ei voi poistaa.';
+			return;
+		}
+		if (!confirm(t.common.confirmDelete)) return;
+		await supabase.from('taxa').delete().eq('id', taxon.id);
+		await load();
+	}
+</script>
+
+<svelte:head><title>{t.taxon.many} — {t.app.name}</title></svelte:head>
+
+<div class="section">
+	<div class="head">
+		<div>
+			<p class="eyebrow"><a href="/rekisteri">{t.registry.title}</a></p>
+			<h1>{t.taxon.many}</h1>
+		</div>
+		<button class="btn btn-primary" type="button" onclick={() => (editing = blank())}>
+			{t.taxon.new}
+		</button>
+	</div>
+
+	{#if error}<p class="notice notice-error">{error}</p>{/if}
+
+	{#if editing}
+		<form class="card editor" onsubmit={save}>
+			<h2>{editing.id ? t.common.edit : t.taxon.new}</h2>
+			<div class="field-grid">
+				<div class="field">
+					<label for="genus">{t.taxon.genus}</label>
+					<input id="genus" bind:value={editing.genus} required placeholder="Larix" />
+				</div>
+				<div class="field">
+					<label for="species">{t.taxon.species}</label>
+					<input id="species" bind:value={editing.species} placeholder="sibirica" />
+				</div>
+				<div class="field">
+					<label for="rank">{t.taxon.rank}</label>
+					<input id="rank" bind:value={editing.infraspecific_rank} placeholder="var. / subsp. / f." />
+				</div>
+				<div class="field">
+					<label for="epithet">{t.taxon.epithet}</label>
+					<input id="epithet" bind:value={editing.infraspecific_epithet} placeholder="carelica" />
+				</div>
+			</div>
+			<div class="field-grid">
+				<div class="field">
+					<label for="cultivar">{t.taxon.cultivar}</label>
+					<input id="cultivar" bind:value={editing.cultivar} placeholder="Royal Red" />
+				</div>
+				<div class="field">
+					<label for="name-fi">{t.taxon.nameFi}</label>
+					<input id="name-fi" bind:value={editing.name_fi} placeholder="siperianlehtikuusi" />
+				</div>
+			</div>
+			<div class="field">
+				<label for="mustila">{t.taxon.mustilaUrl}</label>
+				<input id="mustila" type="url" bind:value={editing.mustila_url} placeholder="https://www.mustila.fi/…" />
+			</div>
+			<div class="field">
+				<label for="taxon-notes">{t.taxon.notes}</label>
+				<textarea id="taxon-notes" bind:value={editing.notes}></textarea>
+			</div>
+			<div class="row">
+				<button class="btn btn-primary" type="submit" disabled={busy}>
+					{busy ? t.common.saving : t.common.save}
+				</button>
+				<button class="btn" type="button" onclick={() => (editing = null)}>{t.common.cancel}</button>
+			</div>
+		</form>
+	{/if}
+
+	<input
+		class="search"
+		type="search"
+		bind:value={query}
+		placeholder={t.common.search}
+		aria-label={t.common.search}
+	/>
+
+	<div class="table-scroll">
+		<table>
+			<thead>
+				<tr>
+					<th>Tieteellinen nimi</th>
+					<th>{t.taxon.nameFi}</th>
+					<th>{t.planting.many}</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each filtered as taxon (taxon.id)}
+					<tr>
+						<td>
+							<SciName {taxon} />
+							{#if taxon.mustila_url}
+								<a class="ext" href={taxon.mustila_url} target="_blank" rel="noopener">↗</a>
+							{/if}
+						</td>
+						<td>{taxon.name_fi ?? '—'}</td>
+						<td class="num">{counts[taxon.id] ?? 0}</td>
+						<td class="num actions-cell">
+							<button class="link-btn" type="button" onclick={() => (editing = { ...taxon })}>
+								{t.common.edit}
+							</button>
+							<button class="link-btn danger" type="button" onclick={() => remove(taxon)}>
+								{t.common.delete}
+							</button>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<style>
+	.head {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin-bottom: 1rem;
+	}
+
+	.editor {
+		margin-bottom: 1.25rem;
+	}
+
+	.editor h2 {
+		margin-bottom: 0.7rem;
+	}
+
+	.search {
+		margin-bottom: 0.85rem;
+	}
+
+	.ext {
+		text-decoration: none;
+		margin-left: 0.3rem;
+		color: var(--lichen);
+	}
+
+	.actions-cell {
+		white-space: nowrap;
+	}
+
+	.link-btn {
+		background: none;
+		border: 0;
+		color: var(--moss);
+		font-size: 0.8125rem;
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+		cursor: pointer;
+		padding: 0.2rem 0.3rem;
+	}
+
+	.danger {
+		color: var(--rowan);
+	}
+</style>
