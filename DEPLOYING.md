@@ -304,15 +304,39 @@ cd /srv/arbodb/stack
 SERVICE_KEY=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
 KONG_PORT=$(grep '^KONG_HTTP_PORT=' .env | cut -d= -f2-)
 
-curl -s -X POST "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users" \
+EMAIL=friend@example.fi
+read -rs -p "Password for $EMAIL: " PW; echo
+
+# Built with jq rather than pasted into the JSON: a password containing a quote,
+# a backslash or a dollar sign would otherwise be mangled by the shell or break
+# the request, and you would not find out until sign-in failed weeks later.
+BODY=$(jq -n --arg e "$EMAIL" --arg p "$PW" \
+  '{email:$e, password:$p, email_confirm:true}')
+
+curl -s -w '\nHTTP %{http_code}\n' -X POST \
+  "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"email":"friend@example.fi","password":"CHANGE-ME","email_confirm":true}'
+  --data-binary "$BODY"
+
+unset PW BODY
 ```
+
+**Check that it printed `HTTP 200`** and a JSON user object with an `id`. Any
+other status means the account was not created, and the only symptom later is a
+login that fails with "check your email and password". `pacman -S jq` if you
+need it.
 
 Repeat for your own account. Pick the passwords with a password manager; with
 `DISABLE_SIGNUP=true` these are the only two ways in.
+
+Confirm both landed:
+
+```bash
+docker compose exec -T db psql -U postgres -d postgres -c \
+  "select email, email_confirmed_at is not null as confirmed from auth.users;"
+```
 
 ---
 
@@ -623,6 +647,38 @@ container IPs and holds stale ones after the database container is recreated.
 has `NULL` in one of the token columns. Created through the admin API in step 4
 this cannot happen; hand-inserted rows must set `confirmation_token`,
 `recovery_token`, `email_change` and `email_change_token_new` to `''`.
+
+**Sign-in returns `400 invalid_credentials`** — everything between the browser
+and GoTrue is working; this is only about the account. GoTrue deliberately does
+not distinguish "no such user" from "wrong password", so ask the database:
+
+```bash
+cd /srv/arbodb/stack
+docker compose exec -T db psql -U postgres -d postgres -c \
+  "select email, email_confirmed_at is not null as confirmed from auth.users;"
+```
+
+No rows means step 4 never completed — most likely its `curl` failed and the
+error scrolled past. Run it again and check for `HTTP 200`.
+
+If the account is there, the password is not what you think it is. Rather than
+guess, set a new one:
+
+```bash
+SERVICE_KEY=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
+KONG_PORT=$(grep '^KONG_HTTP_PORT=' .env | cut -d= -f2-)
+# Not UID — bash reserves that one and the assignment would fail.
+USER_ID=$(docker compose exec -T db psql -U postgres -d postgres -tA -c \
+  "select id from auth.users where email = 'friend@example.fi';" | tr -d '\r')
+
+read -rs -p "New password: " PW; echo
+curl -s -w '\nHTTP %{http_code}\n' -X PUT \
+  "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users/$USER_ID" \
+  -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary "$(jq -n --arg p "$PW" '{password:$p}')"
+unset PW
+```
 
 **`relation "storage.buckets" does not exist`** while applying migrations — the
 storage service had not finished its own first-boot migrations. Wait for
