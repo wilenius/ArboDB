@@ -114,6 +114,21 @@ That prints `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`,
 - `SERVICE_ROLE_KEY` **bypasses row level security entirely**. It stays on the
   server. Never put it in a `PUBLIC_` variable.
 
+**Run this once.** Every invocation mints entirely new secrets, so it is not a
+way to look a key up later. `stack/.env` is the record of what the stack is
+actually running:
+
+```bash
+grep '^ANON_KEY=' /srv/arbodb/stack/.env | cut -d= -f2-   # read it back
+node scripts/make-keys.mjs --check /srv/arbodb/stack/.env # verify, generate nothing
+```
+
+`--check` confirms `ANON_KEY` and `SERVICE_ROLE_KEY` are signed by the
+`JWT_SECRET` sitting beside them and have not expired. Re-running the generator
+against a live stack is worse than useless: the keys stop matching, and
+`POSTGRES_PASSWORD` is written into the database at first init, so changing it
+locks the stack out of its own data.
+
 ### The rest of `.env`
 
 Set these, replacing `arbo.example.fi` with your hostname:
@@ -599,9 +614,20 @@ Check `select * from arbodb_migrations;` to see what actually applied.
 was empty at build time. Fix `.env` and rebuild; the app degrades deliberately
 rather than showing a broken map.
 
-**The app loads but every request 401s** — `ANON_KEY` in the app's `.env` was not
-generated from the same `JWT_SECRET` the stack is running. Regenerate both
-together and rebuild.
+**The app loads but every request 401s** — `PUBLIC_SUPABASE_ANON_KEY` in the
+app's `.env` does not match the stack. Compare it against the live value and
+check the stack's own keys are internally consistent:
+
+```bash
+grep '^ANON_KEY=' /srv/arbodb/stack/.env | cut -d= -f2-
+grep '^PUBLIC_SUPABASE_ANON_KEY=' /srv/arbodb/app/.env | cut -d= -f2-
+node /srv/arbodb/app/scripts/make-keys.mjs --check /srv/arbodb/stack/.env
+```
+
+If the two differ, copy the stack's value into the app's `.env` and rebuild —
+`PUBLIC_*` variables are baked in at build time, so editing `.env` alone changes
+nothing. If `--check` reports a signature mismatch, the stack's own `.env` is
+inconsistent: some keys were regenerated and others were not.
 
 **GPS never gets a fix on the phone, but works on the desktop** — the site is not
 on a secure origin. See [Not a public domain?](#not-a-public-domain).

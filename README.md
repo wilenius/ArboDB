@@ -101,7 +101,7 @@ supabase/
 
 scripts/
   apply-migrations.sh  Applies each migration once; the migrations are not idempotent
-  make-keys.mjs        Generates self-hosting secrets locally, not on a web page
+  make-keys.mjs        Generates self-hosting secrets locally; --check verifies an existing .env
 ```
 
 Routes are Finnish: `/` (field mode), `/kartta`, `/rekisteri`, `/puutarhat`,
