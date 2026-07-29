@@ -22,13 +22,32 @@ has no public domain.
 ```bash
 sudo pacman -Syu
 sudo pacman -S --needed docker docker-compose git nodejs npm caddy postgresql-libs
-
-sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"     # log out and back in for this to take effect
 ```
 
 `postgresql-libs` is only for the `psql` client — the database itself runs in
 Docker. Check Node is 20 or newer with `node -v`.
+
+Then confirm Docker is actually in the state the rest of this guide assumes:
+
+```bash
+systemctl is-enabled docker.service docker.socket   # at least one "enabled"
+docker info >/dev/null 2>&1 && echo "docker works as this user"
+```
+
+If neither unit reports `enabled`, the daemon will not start at boot — and the
+stack's `restart: unless-stopped` policy then never gets a chance to fire, so the
+arboretum stays down after a power cut until someone logs in. Fix with
+`sudo systemctl enable --now docker.service`.
+
+If `docker info` failed, either prefix every `docker` command below with `sudo`,
+or add yourself to the `docker` group with
+`sudo usermod -aG docker "$USER"` and log back in. That group is root-equivalent
+— anyone in it can mount the host filesystem into a container — so preferring
+`sudo` is a reasonable choice rather than an inconvenience.
+
+Arch and Manjaro ship both units disabled after `pacman -S docker`, unlike
+Debian's package, which is why this is worth checking rather than assuming
+either way.
 
 ---
 
@@ -295,9 +314,21 @@ on the desktop and then silently fails in the field.
 
 ## 7. Keeping it alive
 
-Docker Compose restarts the stack on boot if the services carry
-`restart: unless-stopped` (the upstream file does) and `docker.service` is
-enabled, which step 1 did.
+The stack comes back on boot when two things are both true: the compose services
+carry a restart policy, and the Docker daemon starts at boot. Check rather than
+assume — this is the part nobody notices is broken until the first power cut.
+
+```bash
+cd /srv/arbodb/stack
+grep -c 'unless-stopped\|restart: always' docker-compose.yml   # expect > 0
+systemctl is-enabled docker.service docker.socket              # expect an "enabled"
+```
+
+If the compose file has no restart policy, add `restart: unless-stopped` to the
+services, or the stack stays down until started by hand.
+
+The honest test is to reboot the server once, before it holds anything you care
+about, and confirm the app answers on its own.
 
 ### Backups
 
