@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fetchPhotos, fetchPlantings } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { publicUrl, session } from '$lib/supabase';
 	import { formatDate, scientificName } from '$lib/format';
 	import { t } from '$lib/i18n';
@@ -11,7 +12,7 @@
 
 	$effect(() => {
 		if ($session)
-			Promise.all([fetchPhotos(), fetchPlantings()]).then(([p, pl]) => {
+			Promise.all([fetchPhotos(), fetchPlantings(gardens.active?.id)]).then(([p, pl]) => {
 				photos = p;
 				plantings = pl;
 				loading = false;

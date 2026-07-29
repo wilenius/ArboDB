@@ -3,6 +3,7 @@
 	import MapView from '$lib/components/MapView.svelte';
 	import Plate from '$lib/components/Plate.svelte';
 	import { buildTargets, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
 	import { supabase, session } from '$lib/supabase';
 	import { t } from '$lib/i18n';
@@ -19,12 +20,17 @@
 	onDestroy(() => geo.stop());
 
 	$effect(() => {
-		if ($session) load();
+		if (!$session || !gardens.loaded) return;
+		void gardens.active?.id;
+		load();
 	});
 
 	async function load() {
 		try {
-			[plantings, layers] = await Promise.all([fetchPlantings(), fetchMapLayers()]);
+			[plantings, layers] = await Promise.all([
+				fetchPlantings(gardens.active?.id),
+				fetchMapLayers()
+			]);
 			loadError = '';
 		} catch {
 			loadError = t.errors.load;
@@ -72,6 +78,7 @@
 			{layers}
 			{here}
 			{editable}
+			garden={gardens.active}
 			selectedKey={selected ? targetKey(selected) : null}
 			onmove={moved}
 			onselect={(x) => (selected = x)}
@@ -97,6 +104,7 @@
 				{editable ? t.map.doneEditing : t.map.editPositions}
 			</button>
 			<a class="btn btn-sm" href="/kartta/tasot">{t.map.layers}</a>
+			<a class="btn btn-sm" href="/puutarhat">{t.garden.boundary}</a>
 		</div>
 
 		{#if editable}
@@ -128,6 +136,8 @@
 			<li><span class="key removed"></span> Poistettu</li>
 			<li><span class="key original"></span> Alkuperäinen puusto</li>
 			<li><span class="key batch"></span> Erä ilman yksilöitä</li>
+			<li><span class="line boundary"></span> {t.garden.boundary}</li>
+			<li><span class="line imported"></span> {t.map.importedLayers}</li>
 		</ul>
 	</aside>
 </div>
@@ -228,6 +238,21 @@
 		background: #7fae86;
 		border-radius: 2px;
 		transform: rotate(45deg);
+	}
+
+	.line {
+		width: 16px;
+		height: 0;
+		flex: none;
+		border-top-width: 2px;
+	}
+
+	.boundary {
+		border-top: 2px dashed #b8862b;
+	}
+
+	.imported {
+		border-top: 2px solid #4d9dbd;
 	}
 
 	@media (min-width: 60rem) {

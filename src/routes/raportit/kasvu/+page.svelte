@@ -1,6 +1,7 @@
 <script lang="ts">
 	import GrowthChart from '$lib/components/GrowthChart.svelte';
 	import { fetchObservations } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { t } from '$lib/i18n';
 	import type { Observation } from '$lib/types';
@@ -10,7 +11,7 @@
 
 	$effect(() => {
 		if ($session)
-			fetchObservations({}).then((x) => {
+			fetchObservations({ gardenId: gardens.active?.id }).then((x) => {
 				observations = x;
 				loading = false;
 			});

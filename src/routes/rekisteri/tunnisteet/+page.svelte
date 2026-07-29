@@ -2,6 +2,7 @@
 	import TagChip from '$lib/components/TagChip.svelte';
 	import ObservationCard from '$lib/components/ObservationCard.svelte';
 	import { bulkTag, fetchObservations, fetchTags, mergeTags } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { supabase, session } from '$lib/supabase';
 	import { t } from '$lib/i18n';
 	import type { Observation, Tag } from '$lib/types';
@@ -37,7 +38,10 @@
 
 	async function load() {
 		try {
-			[tags, observations] = await Promise.all([fetchTags(), fetchObservations({})]);
+			[tags, observations] = await Promise.all([
+				fetchTags(),
+				fetchObservations({ gardenId: gardens.active?.id })
+			]);
 			const tally: Record<string, number> = {};
 			for (const o of observations) {
 				for (const link of o.observation_tags ?? []) {

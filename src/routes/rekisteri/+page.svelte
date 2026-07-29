@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Plate from '$lib/components/Plate.svelte';
 	import { fetchPlantings } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { scientificName } from '$lib/format';
 	import { t } from '$lib/i18n';
@@ -15,13 +16,15 @@
 	let origin = $state<'all' | 'planted' | 'original'>('all');
 
 	$effect(() => {
-		if ($session) load();
+		if (!$session || !gardens.loaded) return;
+		void gardens.active?.id;
+		load();
 	});
 
 	async function load() {
 		loading = true;
 		try {
-			plantings = await fetchPlantings();
+			plantings = await fetchPlantings(gardens.active?.id);
 			error = '';
 		} catch {
 			error = t.errors.load;
@@ -71,6 +74,7 @@
 		<a href="/rekisteri" aria-current="page">{t.planting.many}</a>
 		<a href="/rekisteri/taksonit">{t.taxon.many}</a>
 		<a href="/rekisteri/tunnisteet">{t.tag.many}</a>
+		<a href="/puutarhat">{t.garden.many}</a>
 		<a href="/rekisteri/tuonti">{t.registry.importExport}</a>
 	</nav>
 

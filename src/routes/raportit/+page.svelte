@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fetchObservations, fetchPlantings, fetchTaxa } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { t } from '$lib/i18n';
 
@@ -13,8 +14,8 @@
 	async function load() {
 		const [taxa, plantings, observations] = await Promise.all([
 			fetchTaxa(),
-			fetchPlantings(),
-			fetchObservations({})
+			fetchPlantings(gardens.active?.id),
+			fetchObservations({ gardenId: gardens.active?.id })
 		]);
 		summary = {
 			taxa: taxa.length,

@@ -187,6 +187,90 @@ export function geoJsonBounds(geo: any): [number, number, number, number] | null
 	return Number.isFinite(w) ? [w, s, e, n] : null;
 }
 
+// --- polygon measures ------------------------------------------------------
+// Used for hand-drawn garden boundaries. Projecting to TM35FIN before applying
+// the shoelace formula keeps the numbers honest at Finnish latitudes, where a
+// degree of longitude is barely half a degree of latitude on the ground.
+
+export type Ring = [number, number][];
+
+/** Area of a WGS84 ring in hectares. */
+export function ringAreaHectares(ring: Ring): number {
+	if (ring.length < 3) return 0;
+	const projected = ring.map(([lon, lat]) => wgs84ToTm35fin(lon, lat));
+	let twiceArea = 0;
+	for (let i = 0; i < projected.length; i++) {
+		const [x1, y1] = projected[i];
+		const [x2, y2] = projected[(i + 1) % projected.length];
+		twiceArea += x1 * y2 - x2 * y1;
+	}
+	return Math.abs(twiceArea / 2) / 10000;
+}
+
+/** Perimeter of a WGS84 ring in metres. */
+export function ringPerimeterMeters(ring: Ring): number {
+	if (ring.length < 2) return 0;
+	let total = 0;
+	for (let i = 0; i < ring.length; i++) {
+		const [lon1, lat1] = ring[i];
+		const [lon2, lat2] = ring[(i + 1) % ring.length];
+		total += distanceMeters(lat1, lon1, lat2, lon2);
+	}
+	return total;
+}
+
+/**
+ * Area centroid of a ring, which is where the map should open. A plain average
+ * of the vertices would drift towards whichever edge the owner clicked most
+ * while drawing.
+ */
+export function ringCentroid(ring: Ring): [number, number] | null {
+	if (ring.length < 3) return null;
+	const projected = ring.map(([lon, lat]) => wgs84ToTm35fin(lon, lat));
+	let twiceArea = 0;
+	let cx = 0;
+	let cy = 0;
+	for (let i = 0; i < projected.length; i++) {
+		const [x1, y1] = projected[i];
+		const [x2, y2] = projected[(i + 1) % projected.length];
+		const cross = x1 * y2 - x2 * y1;
+		twiceArea += cross;
+		cx += (x1 + x2) * cross;
+		cy += (y1 + y2) * cross;
+	}
+	if (twiceArea === 0) {
+		// Degenerate ring (all points collinear): fall back to the mean.
+		const n = ring.length;
+		return [
+			ring.reduce((s, p) => s + p[0], 0) / n,
+			ring.reduce((s, p) => s + p[1], 0) / n
+		];
+	}
+	const [lon, lat] = tm35finToWgs84(cx / (3 * twiceArea), cy / (3 * twiceArea));
+	return [lon, lat];
+}
+
+/** Wrap a drawn ring as a GeoJSON Polygon, closing it if the user did not. */
+export function ringToPolygon(ring: Ring): { type: 'Polygon'; coordinates: Ring[] } | null {
+	if (ring.length < 3) return null;
+	const closed = [...ring];
+	const [fx, fy] = closed[0];
+	const [lx, ly] = closed[closed.length - 1];
+	if (fx !== lx || fy !== ly) closed.push([fx, fy]);
+	return { type: 'Polygon', coordinates: [closed] };
+}
+
+/** The drawable ring inside a stored Polygon, without the closing duplicate. */
+export function polygonToRing(polygon: unknown): Ring {
+	const coords = (polygon as { coordinates?: Ring[] } | null)?.coordinates?.[0];
+	if (!Array.isArray(coords) || coords.length < 3) return [];
+	const ring = [...coords];
+	const [fx, fy] = ring[0];
+	const [lx, ly] = ring[ring.length - 1];
+	if (fx === lx && fy === ly) ring.pop();
+	return ring;
+}
+
 /**
  * A world file (.jgw / .pgw / .tfw) pins a plain image to the ground: pixel
  * size, rotation, and the centre of the top-left pixel, six numbers on six

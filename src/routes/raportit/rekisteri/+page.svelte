@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SciName from '$lib/components/SciName.svelte';
 	import { fetchPlantings } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { formatPlantedDate } from '$lib/format';
 	import { t } from '$lib/i18n';
@@ -11,7 +12,7 @@
 	let groupBy = $state<'year' | 'genus'>('year');
 
 	$effect(() => {
-		if ($session) fetchPlantings().then((x) => {
+		if ($session) fetchPlantings(gardens.active?.id).then((x) => {
 			plantings = x;
 			loading = false;
 		});

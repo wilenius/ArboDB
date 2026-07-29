@@ -3,6 +3,7 @@
 	import Plate from '$lib/components/Plate.svelte';
 	import MapView from '$lib/components/MapView.svelte';
 	import { buildTargets, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
 	import { bearingDegrees, compassPoint } from '$lib/geo';
 	import { formatDistance } from '$lib/format';
@@ -23,14 +24,19 @@
 	onDestroy(() => geo.stop());
 
 	$effect(() => {
-		if (!$session) return;
+		// Re-reads when the active garden changes, so switching plots reloads.
+		if (!$session || !gardens.loaded) return;
+		void gardens.active?.id;
 		load();
 	});
 
 	async function load() {
 		loading = true;
 		try {
-			[plantings, layers] = await Promise.all([fetchPlantings(), fetchMapLayers()]);
+			[plantings, layers] = await Promise.all([
+				fetchPlantings(gardens.active?.id),
+				fetchMapLayers()
+			]);
 			loadError = '';
 		} catch {
 			loadError = t.errors.load;
@@ -115,7 +121,13 @@
 	{/if}
 
 	<div class="map-strip">
-		<MapView targets={allTargets} {layers} {here} selectedKey={nearest ? targetKey(nearest) : null} />
+		<MapView
+			targets={allTargets}
+			{layers}
+			{here}
+			garden={gardens.active}
+			selectedKey={nearest ? targetKey(nearest) : null}
+		/>
 	</div>
 
 	<div class="search-row no-print">

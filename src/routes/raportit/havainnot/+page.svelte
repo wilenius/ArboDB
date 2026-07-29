@@ -2,6 +2,7 @@
 	import ObservationCard from '$lib/components/ObservationCard.svelte';
 	import TagChip from '$lib/components/TagChip.svelte';
 	import { fetchObservations, fetchTags } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { scientificName } from '$lib/format';
 	import { t } from '$lib/i18n';
@@ -22,7 +23,10 @@
 	});
 
 	async function load() {
-		[observations, tags] = await Promise.all([fetchObservations({}), fetchTags()]);
+		[observations, tags] = await Promise.all([
+			fetchObservations({ gardenId: gardens.active?.id }),
+			fetchTags()
+		]);
 		loading = false;
 	}
 

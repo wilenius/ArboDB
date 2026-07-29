@@ -10,8 +10,9 @@
 	import { availableBasemaps, buildStyle, DEFAULT_BASEMAP, hasMml, type BasemapId } from '$lib/basemaps';
 	import { publicUrl } from '$lib/supabase';
 	import { scientificName } from '$lib/format';
+	import { ringToPolygon, type Ring } from '$lib/geo';
 	import { t } from '$lib/i18n';
-	import type { MapLayer, Target } from '$lib/types';
+	import type { Garden, MapLayer, Target } from '$lib/types';
 
 	let {
 		targets = [],
@@ -19,16 +20,28 @@
 		editable = false,
 		here = null,
 		selectedKey = null,
+		garden = null,
+		drawing = false,
+		ring = [],
 		onmove,
-		onselect
+		onselect,
+		onvertexadd,
+		onvertexmove
 	}: {
 		targets?: Target[];
 		layers?: MapLayer[];
 		editable?: boolean;
 		here?: { lat: number; lon: number; accuracy?: number } | null;
 		selectedKey?: string | null;
+		/** Opens the map here and outlines the plot. */
+		garden?: Garden | null;
+		/** Boundary drawing: tap to drop a corner, drag a corner to adjust. */
+		drawing?: boolean;
+		ring?: Ring;
 		onmove?: (target: Target, lat: number, lon: number) => void;
 		onselect?: (target: Target) => void;
+		onvertexadd?: (lat: number, lon: number) => void;
+		onvertexmove?: (index: number, lat: number, lon: number) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -36,49 +49,75 @@
 	let ready = $state(false);
 	let basemap = $state<BasemapId>(DEFAULT_BASEMAP);
 	let markers: Marker[] = [];
+	let vertexMarkers: Marker[] = [];
 	let hereMarker: Marker | undefined;
 
 	const positioned = $derived(targets.filter((x) => x.lat != null && x.lon != null));
 
 	onMount(() => {
+		// The garden decides where the map opens; the env vars are only the
+		// fallback for a database with no garden centred yet.
+		const centreLon = garden?.center_lon ?? Number(PUBLIC_MAP_CENTER_LON) ?? 24.6641;
+		const centreLat = garden?.center_lat ?? Number(PUBLIC_MAP_CENTER_LAT) ?? 60.3308;
+
 		map = new maplibregl.Map({
 			container,
 			style: buildStyle(basemap),
-			center: [Number(PUBLIC_MAP_CENTER_LON) || 24.6641, Number(PUBLIC_MAP_CENTER_LAT) || 60.3308],
-			zoom: Number(PUBLIC_MAP_ZOOM) || 17,
+			center: [centreLon, centreLat],
+			zoom: garden?.default_zoom ?? Number(PUBLIC_MAP_ZOOM) ?? 17,
 			maxZoom: 21,
 			attributionControl: { compact: true }
 		});
 		map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
 		map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-left');
 
+		// Everything of ours goes on once the style exists. Note that inside this
+		// handler isStyleLoaded() can still report false while sources finish
+		// loading, so it must not be used as a gate — adding sources and layers
+		// here is legal, and gating on it silently skips the first paint.
 		map.on('load', () => {
 			ready = true;
-			paintLayers();
+			repaint();
 			fitToContent();
 		});
 
-		// A style swap wipes every source and layer, so put ours back afterwards.
-		map.on('styledata', () => {
-			if (ready) paintLayers();
+		map.on('click', (e) => {
+			if (drawing) onvertexadd?.(e.lngLat.lat, e.lngLat.lng);
 		});
+
 	});
+
+	/** Everything this component draws on top of the basemap. */
+	function repaint() {
+		if (!map || !ready) return;
+		paintLayers();
+		paintBoundary();
+		syncMarkers();
+	}
 
 	onDestroy(() => {
 		markers.forEach((m) => m.remove());
+		vertexMarkers.forEach((m) => m.remove());
 		hereMarker?.remove();
 		map?.remove();
 	});
 
+	/**
+	 * A style swap wipes every source and layer we added, so put them back once
+	 * the new style has settled. 'idle' is the reliable signal — 'styledata'
+	 * fires repeatedly and can arrive before the old style is torn down.
+	 */
 	function setBasemap(id: BasemapId) {
 		basemap = id;
-		map?.setStyle(buildStyle(id));
+		if (!map) return;
+		map.setStyle(buildStyle(id));
+		map.once('idle', () => repaint());
 	}
 
 	// --- imported layers ---------------------------------------------------
 
 	function paintLayers() {
-		if (!map || !map.isStyleLoaded()) return;
+		if (!map || !map.getStyle()) return;
 
 		for (const layer of layers) {
 			if (!layer.visible) continue;
@@ -92,16 +131,15 @@
 					type: 'fill',
 					source: sourceId,
 					filter: ['==', ['geometry-type'], 'Polygon'],
-					paint: { 'fill-color': '#b8862b', 'fill-opacity': 0.1 * layer.opacity }
+					paint: { 'fill-color': '#7fc4e0', 'fill-opacity': 0.12 * layer.opacity }
 				});
 				map.addLayer({
 					id: `${sourceId}-line`,
 					type: 'line',
 					source: sourceId,
 					paint: {
-						'line-color': '#e8c46a',
+						'line-color': '#7fc4e0',
 						'line-width': 2,
-						'line-dasharray': [3, 2],
 						'line-opacity': layer.opacity
 					}
 				});
@@ -129,9 +167,97 @@
 		paintAreas();
 	}
 
+	// --- garden boundary ---------------------------------------------------
+
+	/**
+	 * The plot outline. While drawing, the ring being edited wins over the
+	 * stored boundary so the owner sees exactly what will be saved.
+	 */
+	function paintBoundary() {
+		if (!map || !map.getStyle()) return;
+
+		const live = drawing || ring.length ? ringToPolygon(ring) : null;
+		const geometry = live ?? garden?.boundary ?? null;
+
+		const data = geometry
+			? { type: 'Feature' as const, properties: {}, geometry: geometry as never }
+			: { type: 'FeatureCollection' as const, features: [] };
+
+		const existing = map.getSource('garden-boundary') as maplibregl.GeoJSONSource | undefined;
+		if (existing) {
+			existing.setData(data as never);
+		} else {
+			map.addSource('garden-boundary', { type: 'geojson', data: data as never });
+			map.addLayer({
+				id: 'garden-boundary-fill',
+				type: 'fill',
+				source: 'garden-boundary',
+				paint: { 'fill-color': '#e8c46a', 'fill-opacity': 0.07 }
+			});
+			map.addLayer({
+				id: 'garden-boundary-line',
+				type: 'line',
+				source: 'garden-boundary',
+				paint: {
+					'line-color': '#e8c46a',
+					'line-width': 2,
+					'line-dasharray': [3, 2]
+				}
+			});
+		}
+
+		// While drawing, an open chain of two points has no polygon to fill, so
+		// draw the chain itself or the first segment vanishes.
+		const chain =
+			drawing && ring.length >= 2
+				? {
+						type: 'Feature' as const,
+						properties: {},
+						geometry: { type: 'LineString' as const, coordinates: ring }
+					}
+				: { type: 'FeatureCollection' as const, features: [] };
+
+		const chainSource = map.getSource('garden-chain') as maplibregl.GeoJSONSource | undefined;
+		if (chainSource) {
+			chainSource.setData(chain as never);
+		} else {
+			map.addSource('garden-chain', { type: 'geojson', data: chain as never });
+			map.addLayer({
+				id: 'garden-chain-line',
+				type: 'line',
+				source: 'garden-chain',
+				paint: { 'line-color': '#e8c46a', 'line-width': 2 }
+			});
+		}
+
+		syncVertices();
+	}
+
+	/** Corner handles, draggable so a rough outline can be nudged into shape. */
+	function syncVertices() {
+		if (!map) return;
+		vertexMarkers.forEach((m) => m.remove());
+		vertexMarkers = [];
+		if (!drawing) return;
+
+		vertexMarkers = ring.map(([lon, lat], index) => {
+			const el = document.createElement('div');
+			el.className = 'vertex-marker';
+			el.setAttribute('aria-label', `${t.garden.corner} ${index + 1}`);
+			const marker = new maplibregl.Marker({ element: el, draggable: true })
+				.setLngLat([lon, lat])
+				.addTo(map!);
+			marker.on('dragend', () => {
+				const { lng, lat: newLat } = marker.getLngLat();
+				onvertexmove?.(index, newLat, lng);
+			});
+			return marker;
+		});
+	}
+
 	/** Batch plantings have no individual trees, only a centroid and a radius. */
 	function paintAreas() {
-		if (!map) return;
+		if (!map || !map.getStyle()) return;
 		const features = positioned
 			.filter((x) => x.kind === 'planting' && x.planting.radius_m)
 			.map((x) => ({
@@ -222,11 +348,15 @@
 	}
 
 	$effect(() => {
-		// Re-read the reactive inputs so this runs when any of them change.
+		// Re-read every reactive input so this runs when any of them change.
 		void positioned;
 		void editable;
 		void selectedKey;
-		if (ready) syncMarkers();
+		void ring;
+		void drawing;
+		void garden;
+		void layers;
+		if (ready) repaint();
 	});
 
 	$effect(() => {
@@ -248,7 +378,13 @@
 
 	function fitToContent() {
 		if (!map) return;
-		const coords = positioned.map((x) => [x.lon!, x.lat!] as [number, number]);
+		// Prefer the plot outline: it is the answer to "show me the garden",
+		// whereas the specimens only cover wherever planting has happened.
+		const boundaryRing = garden?.boundary?.coordinates?.[0];
+		const coords: [number, number][] =
+			boundaryRing && boundaryRing.length >= 3
+				? (boundaryRing as [number, number][])
+				: positioned.map((x) => [x.lon!, x.lat!] as [number, number]);
 		if (coords.length < 2) return;
 		const bounds = coords.reduce(
 			(b, c) => b.extend(c),
@@ -266,7 +402,7 @@
 	}
 </script>
 
-<div class="map-wrap">
+<div class="map-wrap" class:drawing>
 	<div class="map" bind:this={container}></div>
 
 	<div class="basemap-switch no-print" role="group" aria-label={t.map.basemap}>
@@ -301,6 +437,31 @@
 	.map {
 		position: absolute;
 		inset: 0;
+	}
+
+	/* Crosshair says "this click places a corner", not "this pans the map". */
+	.drawing :global(.maplibregl-canvas-container) {
+		cursor: crosshair;
+	}
+
+	/* Specimen markers must not swallow clicks meant for the outline. */
+	.drawing :global(.tree-marker) {
+		pointer-events: none;
+		opacity: 0.55;
+	}
+
+	:global(.vertex-marker) {
+		width: 15px;
+		height: 15px;
+		border-radius: 50%;
+		background: #e8c46a;
+		border: 2px solid #14241c;
+		box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8);
+		cursor: grab;
+	}
+
+	:global(.vertex-marker:active) {
+		cursor: grabbing;
 	}
 
 	/* Four basemaps do not fit across a phone, so the strip scrolls sideways

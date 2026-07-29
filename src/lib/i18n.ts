@@ -146,6 +146,47 @@ export const fi = {
 		removeFromSelected: 'Poista valituilta',
 		selected: (n: number) => `${n} valittu`
 	},
+	garden: {
+		one: 'Puutarha',
+		many: 'Puutarhat',
+		name: 'Nimi',
+		notes: 'Kuvaus',
+		new: 'Uusi puutarha',
+		none: 'Puutarhoja ei ole vielä luotu.',
+		noneHelp:
+			'Luo ensin puutarha: se antaa istutuksille sijainnin ja määrää mihin kartta avautuu.',
+		switch: 'Vaihda puutarhaa',
+		manage: 'Hallinnoi puutarhoja',
+		boundary: 'Raja',
+		boundaryNone: 'Rajaa ei ole vielä piirretty.',
+		boundarySource: 'Rajan lähde',
+		boundarySources: {
+			drawn: 'Käsin piirretty',
+			imported: 'Tuotu tiedostosta',
+			survey: 'Mittausaineisto'
+		},
+		drawnWarning:
+			'Raja on piirretty käsin, joten se on suuntaa antava. Korvaa mittausaineistolla kun se on saatavilla.',
+		draw: 'Piirrä raja',
+		redraw: 'Piirrä uudelleen',
+		drawing: 'Piirtämässä',
+		drawHelp:
+			'Napauta karttaa lisätäksesi kulmapisteen. Vedä pistettä siirtääksesi sitä. Kolme pistettä riittää.',
+		finish: 'Valmis',
+		undo: 'Kumoa piste',
+		clear: 'Tyhjennä',
+		corner: 'Kulmapiste',
+		corners: (n: number) => `${n} ${n === 1 ? 'piste' : 'pistettä'}`,
+		area: 'Pinta-ala',
+		perimeter: 'Piiri',
+		center: 'Kartan keskipiste',
+		centerFromBoundary: 'Keskitä rajan mukaan',
+		centerFromHere: 'Käytä nykyistä sijaintia',
+		zoom: 'Oletuszoomaus',
+		plantingCount: 'Istutuksia',
+		cannotDelete: 'Puutarhassa on istutuksia, joten sitä ei voi poistaa.',
+		hectares: (ha: number) => `${ha.toFixed(2).replace('.', ',')} ha`
+	},
 	map: {
 		title: 'Kartta',
 		layers: 'Karttatasot',
@@ -183,7 +224,8 @@ export const fi = {
 	},
 	registry: {
 		title: 'Rekisteri',
-		importExport: 'Tuonti ja vienti'
+		importExport: 'Tuonti ja vienti',
+		gardenFilter: 'Näytetään puutarhan istutukset'
 	},
 	importer: {
 		title: 'CSV-tuonti',

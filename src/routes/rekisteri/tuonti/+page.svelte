@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Papa from 'papaparse';
 	import { fetchObservations, fetchPlantings, fetchTaxa } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { supabase, session } from '$lib/supabase';
 	import { downloadCsv, downloadXlsx, stamped, type Column } from '$lib/exporter';
 	import { formatDateTime, formatMeasurement, scientificName } from '$lib/format';
@@ -143,6 +144,7 @@
 				const sizeNum = size.match(/\d+/)?.[0];
 
 				const { error } = await supabase.from('plantings').insert({
+					garden_id: gardens.active?.id ?? null,
 					taxon_id: taxonId,
 					planted_year: year,
 					planted_month: month,
@@ -247,16 +249,16 @@
 		exporting = true;
 		try {
 			if (exportWhat === 'plantings') {
-				const data = await fetchPlantings();
+				const data = await fetchPlantings(gardens.active?.id);
 				await emit(data, PLANTING_COLUMNS, 'istutukset', format);
 			} else if (exportWhat === 'taxa') {
 				const data = await fetchTaxa();
 				await emit(data, TAXON_COLUMNS, 'taksonit', format);
 			} else if (exportWhat === 'observations') {
-				const data = await fetchObservations({});
+				const data = await fetchObservations({ gardenId: gardens.active?.id });
 				await emit(data, OBSERVATION_COLUMNS, 'havainnot', format);
 			} else {
-				const plantings = await fetchPlantings();
+				const plantings = await fetchPlantings(gardens.active?.id);
 				const data: TreeRow[] = plantings.flatMap((p) =>
 					(p.trees ?? []).map((tree) => ({
 						accession: p.accession_code,

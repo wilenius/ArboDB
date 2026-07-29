@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { scientificName } from '$lib/format';
+	import { gardens } from '$lib/gardens.svelte';
 	import { t } from '$lib/i18n';
 	import type { Planting, Taxon } from '$lib/types';
 
@@ -21,6 +22,8 @@
 	// Seeded once from the record being edited; the form owns its values after
 	// that, so untrack keeps this out of the reactive graph deliberately.
 	let form = $state<Record<string, unknown>>(untrack(() => ({
+		// A new planting lands in the garden the owner is currently looking at.
+		garden_id: planting.garden_id ?? gardens.active?.id ?? '',
 		taxon_id: planting.taxon_id ?? '',
 		planted_year: planting.planted_year ?? new Date().getFullYear(),
 		planted_month: planting.planted_month ?? '',
@@ -43,6 +46,7 @@
 	function submit(e: SubmitEvent) {
 		e.preventDefault();
 		onsubmit({
+			garden_id: (form.garden_id as string) || null,
 			taxon_id: form.taxon_id as string,
 			planted_year: num(form.planted_year),
 			planted_month: num(form.planted_month),
@@ -62,6 +66,17 @@
 </script>
 
 <form onsubmit={submit}>
+	{#if gardens.multiple}
+		<div class="field">
+			<label for="garden">{t.garden.one}</label>
+			<select id="garden" bind:value={form.garden_id} required>
+				{#each gardens.all as garden (garden.id)}
+					<option value={garden.id}>{garden.name}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
+
 	<div class="field">
 		<label for="taxon">{t.taxon.one}</label>
 		<select id="taxon" bind:value={form.taxon_id} required>

@@ -35,9 +35,9 @@ Demo accounts (seeded, local only):
 Magic-link sign-in also works locally — the mail lands in Mailpit at
 <http://127.0.0.1:54324>.
 
-`npm run db:reset` reapplies the migration and reloads the demo data, which is a
-realistic 2 ha plot in Uusimaa: 15 taxa, 17 plantings, 20 individually tracked
-specimens, 33 observations, and a plot boundary.
+`npm run db:reset` reapplies the migrations and reloads the demo data: one
+garden — an exact 200 x 100 m (2 ha) plot in Uusimaa — holding 15 taxa, 17
+plantings, 20 individually tracked specimens, and 33 observations.
 
 ### Aerial imagery
 
@@ -66,6 +66,10 @@ editing `.env`.
 | 7. Reports, exports, print CSS | Done — registry, observations, growth charts, gallery; CSV + XLSX |
 | 8. Public publishing routes | Done — `/julkinen`, anon key + RLS |
 
+Added after the first pass: **gardens**. A garden is the plot a planting stands
+in — it owns the name, the boundary, and the view the map opens on. Manage them
+at `/puutarhat`.
+
 Designed-for-but-not-built, per spec §7: the historical timeline. Every status
 change on a planting or a specimen is stamped by a trigger rather than
 overwriting, so the history is already accumulating.
@@ -93,8 +97,29 @@ supabase/
   seed.sql           Demo arboretum + demo accounts
 ```
 
-Routes are Finnish: `/` (field mode), `/kartta`, `/rekisteri`, `/istutus/[id]`,
-`/puu/[id]`, `/havainto/uusi`, `/raportit`, `/julkinen`.
+Routes are Finnish: `/` (field mode), `/kartta`, `/rekisteri`, `/puutarhat`,
+`/istutus/[id]`, `/puu/[id]`, `/havainto/uusi`, `/raportit`, `/julkinen`.
+
+### Gardens
+
+One database, not one per garden: separate databases would multiply the hosting
+cost and break cross-garden reporting for the sake of a name and a polygon.
+`plantings.garden_id` gives the same separation, and every screen scopes itself
+to the active garden rather than assuming there is exactly one — so adding a
+second plot is a data change, not a rewrite. The picker in the header appears
+only once a second garden exists.
+
+Taxa and tags stay global on purpose. *Larix sibirica* is the same species in
+every plot, and two parallel tag vocabularies would be miserable to maintain.
+
+Boundaries are drawn by hand on the aerial photo at `/puutarhat` — tap to drop a
+corner, drag a corner to adjust — because a rough outline that exists today
+beats surveyed data that arrives next year. Area and perimeter are computed
+live by projecting to EPSG:3067 first, so the hectares are honest at Finnish
+latitudes. `boundary_source` records how the outline was obtained (`drawn` /
+`imported` / `survey`) and the UI warns while it is merely drawn, so nobody
+mistakes it for a geofence. Replacing it with real survey data later is a swap:
+set the new polygon and flip the source.
 
 ---
 
@@ -154,3 +179,12 @@ Backups: Supabase's built-in daily backups cover the free tier's retention;
 - **Finnish map material is EPSG:3067.** The layer importer detects and
   reprojects it; `src/lib/geo.ts` holds the transverse Mercator maths so no
   proj4 dependency is needed.
+- **Do not gate map painting on `map.isStyleLoaded()`.** Inside MapLibre's
+  `load` handler it can still report false while sources finish loading, which
+  silently skips the first paint with no error. Adding sources and layers there
+  is legal; `MapView.repaint()` is the single entry point, re-run on `idle`
+  after a basemap swap.
+- **Filtering by garden through an embedded resource needs `!inner`.** Plain
+  `.eq('plantings.garden_id', id)` keeps every parent row and merely blanks the
+  embed, so `fetchObservations` builds its select string with the inner join
+  when a garden is given.

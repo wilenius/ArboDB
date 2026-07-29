@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { initAuth, session, supabase } from '$lib/supabase';
+	import { gardens } from '$lib/gardens.svelte';
 	import { t } from '$lib/i18n';
 
 	let { children } = $props();
@@ -27,6 +28,12 @@
 		if ($session === null && !isPublicRoute) {
 			goto('/kirjaudu?next=' + encodeURIComponent(page.url.pathname), { replaceState: true });
 		}
+	});
+
+	// Load the gardens once per session: every screen scopes itself to the
+	// active one, so nothing should have to fetch this for itself.
+	$effect(() => {
+		if ($session && !gardens.loaded) gardens.load();
 	});
 
 	function toggleTheme() {
@@ -67,6 +74,21 @@
 				<span class="sub">{t.app.tagline}</span>
 			</a>
 			<div class="header-actions">
+				<!-- The picker earns its place only once there is a second plot. -->
+				{#if gardens.multiple}
+					<select
+						class="garden-select"
+						aria-label={t.garden.switch}
+						value={gardens.active?.id ?? ''}
+						onchange={(e) => gardens.select(e.currentTarget.value)}
+					>
+						{#each gardens.all as garden (garden.id)}
+							<option value={garden.id}>{garden.name}</option>
+						{/each}
+					</select>
+				{:else if gardens.active}
+					<a class="garden-name" href="/puutarhat">{gardens.active.name}</a>
+				{/if}
 				<button
 					type="button"
 					class="icon-btn"
@@ -180,6 +202,32 @@
 		align-items: center;
 	}
 
+	.garden-select {
+		width: auto;
+		min-width: 7rem;
+		min-height: 2.25rem;
+		padding: 0.2rem 0.4rem;
+		font-size: 0.8125rem;
+	}
+
+	.garden-name {
+		font-family: var(--font-data);
+		font-size: 0.6875rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--bark);
+		text-decoration: none;
+		padding: 0.3rem 0.5rem;
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius);
+		white-space: nowrap;
+	}
+
+	.garden-name:hover {
+		color: var(--ink);
+		border-color: var(--hairline-strong);
+	}
+
 	.icon-btn {
 		min-height: 2.25rem;
 		padding: 0 0.6rem;
@@ -244,6 +292,13 @@
 	.glyph {
 		font-size: 1.05rem;
 		line-height: 1;
+	}
+
+	/* One garden means the name is decoration; a phone header has no room for it. */
+	@media (max-width: 30rem) {
+		.garden-name {
+			display: none;
+		}
 	}
 
 	@media (min-width: 60rem) {

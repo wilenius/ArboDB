@@ -2,8 +2,9 @@
 -- plot in Southern Finland (Uusimaa), planted from 2004 onwards, with a handful
 -- of trees that predate the arboretum (origin_type = 'original').
 --
--- Coordinates sit around 60.3305 N, 24.6640 E — a real-looking plot outline of
--- roughly 200 x 100 m. Replace with the owner's real data via the CSV import.
+-- The plot is an exact 200 x 100 m rectangle (2 ha) around 60.33086 N, 24.66418 E, and
+-- every specimen sits inside it. Replace with the owner's real data via the
+-- CSV import once his list arrives.
 
 -- ------------------------------------------------------------- accounts ----
 
@@ -37,6 +38,21 @@ select id, id, id::text,
  where email in ('omistaja@arbodb.test', 'yllapito@arbodb.test')
 on conflict do nothing;
 
+-- -------------------------------------------------------------- gardens ----
+-- One plot: an exact 200 x 100 m rectangle, so the 2 ha in the brief is the
+-- 2 ha the app reports. Flagged 'drawn' — it stands in for survey data.
+
+insert into gardens (id, name, notes, center_lat, center_lon, default_zoom, boundary, boundary_source, sort_order)
+values (
+  '90000000-0000-4000-8000-000000000001',
+  'Arboretum',
+  'Etelä-Suomen tontti, 2 ha. Raja piirretty käsin — korvataan mittausaineistolla kun se saadaan.',
+  60.330860, 24.664180, 17,
+  '{"type":"Polygon","coordinates":[[[24.662365,60.330411],[24.665995,60.330411],[24.665995,60.331309],[24.662365,60.331309],[24.662365,60.330411]]]}'::jsonb,
+  'drawn', 0
+)
+on conflict (id) do nothing;
+
 -- ----------------------------------------------------------------- taxa ----
 
 insert into taxa (id, genus, species, infraspecific_rank, infraspecific_epithet, cultivar, name_fi, mustila_url, notes) values
@@ -59,26 +75,26 @@ on conflict (id) do nothing;
 
 -- ------------------------------------------------------------ plantings ----
 
-insert into plantings (id, taxon_id, accession_code, planted_year, planted_month, count_planted, seedling_size_cm,
+insert into plantings (id, garden_id, taxon_id, accession_code, planted_year, planted_month, count_planted, seedling_size_cm,
                        propagation, provenance, origin_type, status, lat, lon, radius_m, published, notes) values
-  ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', '2004-001', 2004,  5, 12,  40, 'siemenestä itse kasvatettu', 'Siemen: Punkaharju, MTT', 'planted', 'active', 60.33120, 24.66240, 18, true,  'Rivistö tontin eteläreunassa, 3 m välein.'),
-  ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000002', '2009-001', 2009,  6,  3,  60, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.33061, 24.66398,  6, true,  null),
-  ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003', '2012-001', 2012,  9,  1, 180, 'vartettu',                  'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.33044, 24.66512,  2, true,  'Näyttöpuu nurmikentän reunassa.'),
-  ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000004', '2012-002', 2012,  5,  6,  30, 'siemenestä itse kasvatettu', 'Siemen: Ruissalo, Turku',  'planted', 'active', 60.33018, 24.66300, 12, true,  'Kaksi kuollut kuivuuteen 2018.'),
-  ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000005', '2015-001', 2015,  5,  8,  50, 'siemenestä itse kasvatettu', 'Siemen: oma kanta',        'planted', 'active', 60.33150, 24.66450, 15, true,  null),
-  ('b0000000-0000-4000-8000-000000000006', 'a0000000-0000-4000-8000-000000000008', '2016-001', 2016,  6,  4,  90, 'taimitarhataimi',           'Viherpiha Oy, Vantaa',     'planted', 'active', 60.33090, 24.66560, 8,  true,  'Tulevan lehmuskujan alku.'),
-  ('b0000000-0000-4000-8000-000000000007', 'a0000000-0000-4000-8000-000000000009', '2017-001', 2017,  5,  1,  70, 'mikrolisätty',              'Arboretum Mustila',        'planted', 'active', 60.33075, 24.66190, 2,  true,  'Suojaisa paikka kuusiaidan takana.'),
-  ('b0000000-0000-4000-8000-000000000008', 'a0000000-0000-4000-8000-00000000000a', '2017-002', 2017,  8,  9,  35, 'pistokkaista',              'Arboretum Mustila',        'planted', 'active', 60.33035, 24.66225, 7,  true,  'Happaman maan ryhmä, katteena kuorihake.'),
-  ('b0000000-0000-4000-8000-000000000009', 'a0000000-0000-4000-8000-00000000000b', '2018-001', 2018,  5,  5,  60, 'siemenestä itse kasvatettu', 'Siemen: tontin oma pihlaja','planted','active', 60.33170, 24.66330, 10, false, null),
-  ('b0000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-00000000000c', '2019-001', 2019,  9,  3, 120, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.33110, 24.66610, 5,  false, 'Seurataan saarnensurman oireita.'),
-  ('b0000000-0000-4000-8000-00000000000b', 'a0000000-0000-4000-8000-00000000000d', '2020-001', 2020,  5, 20,  45, 'taimitarhataimi',           'Viherpiha Oy, Vantaa',     'planted', 'active', 60.32995, 24.66430, 22, false, 'Suojaistutus länsirajalla.'),
-  ('b0000000-0000-4000-8000-00000000000c', 'a0000000-0000-4000-8000-00000000000e', '2021-001', 2021,  6,  2,  55, 'siemenestä itse kasvatettu', 'Siemen: GBIF-vaihto, Sapporo','planted','active', 60.33055, 24.66650, 4, false, 'Kokeiluistutus, talvisuojaus ensimmäiset vuodet.'),
-  ('b0000000-0000-4000-8000-00000000000d', 'a0000000-0000-4000-8000-00000000000f', '2022-001', 2022,  5,  2, 100, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.33140, 24.66540, 4,  false, null),
-  ('b0000000-0000-4000-8000-00000000000e', 'a0000000-0000-4000-8000-000000000002', '2023-001', 2023,  5,  4,  25, 'siemenestä itse kasvatettu', 'Siemen: oma kanta 2009-001','planted','active', 60.33065, 24.66360, 5, false, 'Toinen sukupolvi omista siemenistä.'),
+  ('b0000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', '2004-001', 2004,  5, 12,  40, 'siemenestä itse kasvatettu', 'Siemen: Punkaharju, MTT', 'planted', 'active', 60.330994, 24.662958, 10, true,  'Rivistö tontin eteläreunassa, 3 m välein.'),
+  ('b0000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', '2009-001', 2009,  6,  3,  60, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.330762, 24.664043,  3, true,  null),
+  ('b0000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', '2012-001', 2012,  9,  1, 180, 'vartettu',                  'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.330695, 24.664825,  2, true,  'Näyttöpuu nurmikentän reunassa.'),
+  ('b0000000-0000-4000-8000-000000000004', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', '2012-002', 2012,  5,  6,  30, 'siemenestä itse kasvatettu', 'Siemen: Ruissalo, Turku',  'planted', 'active', 60.330593, 24.663370, 6, true,  'Kaksi kuollut kuivuuteen 2018.'),
+  ('b0000000-0000-4000-8000-000000000005', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000005', '2015-001', 2015,  5,  8,  50, 'siemenestä itse kasvatettu', 'Siemen: oma kanta',        'planted', 'active', 60.331112, 24.664400, 8, true,  null),
+  ('b0000000-0000-4000-8000-000000000006', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000008', '2016-001', 2016,  6,  4,  90, 'taimitarhataimi',           'Viherpiha Oy, Vantaa',     'planted', 'active', 60.330876, 24.665155, 4,  true,  'Tulevan lehmuskujan alku.'),
+  ('b0000000-0000-4000-8000-000000000007', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000009', '2017-001', 2017,  5,  1,  70, 'mikrolisätty',              'Arboretum Mustila',        'planted', 'active', 60.330817, 24.662615, 2,  true,  'Suojaisa paikka kuusiaidan takana.'),
+  ('b0000000-0000-4000-8000-000000000008', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000a', '2017-002', 2017,  8,  9,  35, 'pistokkaista',              'Arboretum Mustila',        'planted', 'active', 60.330660, 24.662855, 4,  true,  'Happaman maan ryhmä, katteena kuorihake.'),
+  ('b0000000-0000-4000-8000-000000000009', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000b', '2018-001', 2018,  5,  5,  60, 'siemenestä itse kasvatettu', 'Siemen: tontin oma pihlaja','planted','active', 60.331190, 24.663576, 5, false, null),
+  ('b0000000-0000-4000-8000-00000000000a', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000c', '2019-001', 2019,  9,  3, 120, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.330954, 24.665498, 3,  false, 'Seurataan saarnensurman oireita.'),
+  ('b0000000-0000-4000-8000-00000000000b', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000d', '2020-001', 2020,  5, 20,  45, 'taimitarhataimi',           'Viherpiha Oy, Vantaa',     'planted', 'active', 60.330502, 24.664262, 12, false, 'Suojaistutus länsirajalla.'),
+  ('b0000000-0000-4000-8000-00000000000c', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000e', '2021-001', 2021,  6,  2,  55, 'siemenestä itse kasvatettu', 'Siemen: GBIF-vaihto, Sapporo','planted','active', 60.330738, 24.665772, 2, false, 'Kokeiluistutus, talvisuojaus ensimmäiset vuodet.'),
+  ('b0000000-0000-4000-8000-00000000000d', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-00000000000f', '2022-001', 2022,  5,  2, 100, 'taimitarhataimi',           'Taimisto Rönnvik, Inkoo',  'planted', 'active', 60.331072, 24.665017, 2,  false, null),
+  ('b0000000-0000-4000-8000-00000000000e', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', '2023-001', 2023,  5,  4,  25, 'siemenestä itse kasvatettu', 'Siemen: oma kanta 2009-001','planted','active', 60.330777, 24.663782, 3, false, 'Toinen sukupolvi omista siemenistä.'),
   -- Original stand predating the arboretum (spec section 7).
-  ('b0000000-0000-4000-8000-00000000000f', 'a0000000-0000-4000-8000-000000000006', '2000-001', 2000, null, 40, null, null, 'Tontin alkuperäinen kuusikko', 'original', 'active', 60.33180, 24.66600, 40, false, 'Pohjoisrinteen varttunut kuusikko, harvennettu 2011 ja 2019.'),
-  ('b0000000-0000-4000-8000-000000000010', 'a0000000-0000-4000-8000-000000000007', '2000-002', 2000, null, 15, null, null, 'Tontin alkuperäinen männikkö', 'original', 'active', 60.32990, 24.66180, 25, false, 'Kalliomännikkö lounaiskulmassa.'),
-  ('b0000000-0000-4000-8000-000000000011', 'a0000000-0000-4000-8000-000000000006', '2000-003', 2000, null,  8, null, null, 'Tontin alkuperäinen kuusikko', 'original', 'removed', 60.33100, 24.66480, 12, false, 'Poistettu 2016 arboretumin nurmikentän tieltä.')
+  ('b0000000-0000-4000-8000-00000000000f', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000006', '2000-001', 2000, null, 40, null, null, 'Tontin alkuperäinen kuusikko', 'original', 'active', 60.331229, 24.665429, 22, false, 'Pohjoisrinteen varttunut kuusikko, harvennettu 2011 ja 2019.'),
+  ('b0000000-0000-4000-8000-000000000010', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000007', '2000-002', 2000, null, 15, null, null, 'Tontin alkuperäinen männikkö', 'original', 'active', 60.330483, 24.662547, 13, false, 'Kalliomännikkö lounaiskulmassa.'),
+  ('b0000000-0000-4000-8000-000000000011', '90000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000006', '2000-003', 2000, null,  8, null, null, 'Tontin alkuperäinen kuusikko', 'original', 'removed', 60.330915, 24.664605, 6, false, 'Poistettu 2016 arboretumin nurmikentän tieltä.')
 on conflict (id) do nothing;
 
 update plantings set status_changed_at = '2016-04-18T00:00:00+03' where id = 'b0000000-0000-4000-8000-000000000011';
@@ -88,26 +104,26 @@ update plantings set status_changed_at = '2016-04-18T00:00:00+03' where id = 'b0
 -- the planting's own centroid instead.
 
 insert into trees (id, planting_id, label, lat, lon, position_accuracy_m, position_source, status, notes) values
-  ('c0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'A', 60.331150, 24.662180, 3.5, 'gps',    'alive',   'Rivin läntisin, paras runko.'),
-  ('c0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'B', 60.331185, 24.662340, 4.0, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000001', 'C', 60.331210, 24.662520, 2.5, 'manual', 'alive',   'Kaksihaarainen latva, korjattu 2019.'),
-  ('c0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000001', 'D', 60.331240, 24.662700, 3.0, 'manual', 'dead',    'Kuollut 2021, myrskyvaurio.'),
-  ('c0000000-0000-4000-8000-000000000005', 'b0000000-0000-4000-8000-000000000002', 'A', 60.330600, 24.663950, 2.8, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000006', 'b0000000-0000-4000-8000-000000000002', 'B', 60.330625, 24.664020, 3.2, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000007', 'b0000000-0000-4000-8000-000000000002', 'C', 60.330640, 24.663880, 5.0, 'gps',    'alive',   'Heikoin kolmesta, varjossa.'),
-  ('c0000000-0000-4000-8000-000000000008', 'b0000000-0000-4000-8000-000000000003', null, 60.330440, 24.665120, 2.0, 'manual', 'alive',  null),
-  ('c0000000-0000-4000-8000-000000000009', 'b0000000-0000-4000-8000-000000000004', 'A', 60.330200, 24.662900, 4.5, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-00000000000a', 'b0000000-0000-4000-8000-000000000004', 'B', 60.330175, 24.663050, 4.5, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-00000000000b', 'b0000000-0000-4000-8000-000000000004', 'C', 60.330160, 24.663180, 6.0, 'gps',    'dead',    'Kuivuus 2018.'),
-  ('c0000000-0000-4000-8000-00000000000c', 'b0000000-0000-4000-8000-000000000004', 'D', 60.330210, 24.663240, 6.0, 'gps',    'dead',    'Kuivuus 2018.'),
-  ('c0000000-0000-4000-8000-00000000000d', 'b0000000-0000-4000-8000-000000000007', null, 60.330750, 24.661900, 2.2, 'manual', 'alive',  'Mitataan joka kevät.'),
-  ('c0000000-0000-4000-8000-00000000000e', 'b0000000-0000-4000-8000-00000000000c', 'A', 60.330550, 24.666500, 3.8, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-00000000000f', 'b0000000-0000-4000-8000-00000000000c', 'B', 60.330530, 24.666560, 3.8, 'gps',    'removed', 'Siirretty kasvihuoneelle 2023.'),
-  ('c0000000-0000-4000-8000-000000000010', 'b0000000-0000-4000-8000-000000000006', 'A', 60.330900, 24.665560, 3.0, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000011', 'b0000000-0000-4000-8000-000000000006', 'B', 60.330930, 24.665640, 3.0, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000012', 'b0000000-0000-4000-8000-00000000000a', 'A', 60.331100, 24.666100, 2.6, 'manual', 'alive',   'Latvakato lievä 2024.'),
-  ('c0000000-0000-4000-8000-000000000013', 'b0000000-0000-4000-8000-00000000000d', 'A', 60.331400, 24.665400, 3.1, 'gps',    'alive',   null),
-  ('c0000000-0000-4000-8000-000000000014', 'b0000000-0000-4000-8000-00000000000f', 'V1', 60.331820, 24.666050, 5.0, 'manual', 'alive',  'Rinteen suurin kuusi, rungon ympärys 1,9 m.')
+  ('c0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', 'A', 60.330974, 24.662807, 3.5, 'gps',    'alive',   'Rivin läntisin, paras runko.'),
+  ('c0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', 'B', 60.330988, 24.662917, 4.0, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000001', 'C', 60.330998, 24.663041, 2.5, 'manual', 'alive',   'Kaksihaarainen latva, korjattu 2019.'),
+  ('c0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000001', 'D', 60.331009, 24.663164, 3.0, 'manual', 'dead',    'Kuollut 2021, myrskyvaurio.'),
+  ('c0000000-0000-4000-8000-000000000005', 'b0000000-0000-4000-8000-000000000002', 'A', 60.330758, 24.664022, 2.8, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000006', 'b0000000-0000-4000-8000-000000000002', 'B', 60.330768, 24.664070, 3.2, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000007', 'b0000000-0000-4000-8000-000000000002', 'C', 60.330774, 24.663974, 5.0, 'gps',    'alive',   'Heikoin kolmesta, varjossa.'),
+  ('c0000000-0000-4000-8000-000000000008', 'b0000000-0000-4000-8000-000000000003', null, 60.330695, 24.664825, 2.0, 'manual', 'alive',  null),
+  ('c0000000-0000-4000-8000-000000000009', 'b0000000-0000-4000-8000-000000000004', 'A', 60.330601, 24.663302, 4.5, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-00000000000a', 'b0000000-0000-4000-8000-000000000004', 'B', 60.330591, 24.663405, 4.5, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-00000000000b', 'b0000000-0000-4000-8000-000000000004', 'C', 60.330585, 24.663494, 6.0, 'gps',    'dead',    'Kuivuus 2018.'),
+  ('c0000000-0000-4000-8000-00000000000c', 'b0000000-0000-4000-8000-000000000004', 'D', 60.330605, 24.663535, 6.0, 'gps',    'dead',    'Kuivuus 2018.'),
+  ('c0000000-0000-4000-8000-00000000000d', 'b0000000-0000-4000-8000-000000000007', null, 60.330817, 24.662615, 2.2, 'manual', 'alive',  'Mitataan joka kevät.'),
+  ('c0000000-0000-4000-8000-00000000000e', 'b0000000-0000-4000-8000-00000000000c', 'A', 60.330738, 24.665772, 3.8, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-00000000000f', 'b0000000-0000-4000-8000-00000000000c', 'B', 60.330730, 24.665813, 3.8, 'gps',    'removed', 'Siirretty kasvihuoneelle 2023.'),
+  ('c0000000-0000-4000-8000-000000000010', 'b0000000-0000-4000-8000-000000000006', 'A', 60.330876, 24.665127, 3.0, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000011', 'b0000000-0000-4000-8000-000000000006', 'B', 60.330888, 24.665182, 3.0, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000012', 'b0000000-0000-4000-8000-00000000000a', 'A', 60.330954, 24.665498, 2.6, 'manual', 'alive',   'Latvakato lievä 2024.'),
+  ('c0000000-0000-4000-8000-000000000013', 'b0000000-0000-4000-8000-00000000000d', 'A', 60.331072, 24.665017, 3.1, 'gps',    'alive',   null),
+  ('c0000000-0000-4000-8000-000000000014', 'b0000000-0000-4000-8000-00000000000f', 'V1', 60.331237, 24.665463, 5.0, 'manual', 'alive',  'Rinteen suurin kuusi, rungon ympärys 1,9 m.')
 on conflict (id) do nothing;
 
 update trees set status_changed_at = '2021-11-02T00:00:00+02' where id = 'c0000000-0000-4000-8000-000000000004';
@@ -235,11 +251,11 @@ insert into observation_tags (observation_id, tag_id) values
 on conflict do nothing;
 
 -- ----------------------------------------------------------- map layers ----
--- Plot boundary as GeoJSON so the map has the arboretum outline out of the box.
--- Roughly 200 x 100 m ≈ 2 ha.
+-- The plot outline belongs to the garden now, so this shows the other use for
+-- imported layers: extra material drawn over the plot. Here, the paths.
 
 insert into map_layers (id, name, kind, geojson, opacity, visible, sort_order) values
-  ('f0000000-0000-4000-8000-000000000001', 'Tontin raja', 'geojson',
-   '{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Tontin raja"},"geometry":{"type":"Polygon","coordinates":[[[24.66120,60.32975],[24.66700,60.32985],[24.66720,60.33195],[24.66140,60.33185],[24.66120,60.32975]]]}}]}'::jsonb,
+  ('f0000000-0000-4000-8000-000000000001', 'Polut', 'geojson',
+   '{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Pääpolku"},"geometry":{"type":"LineString","coordinates":[[24.662728,60.330591],[24.664180,60.330860],[24.665632,60.331129]]}}]}'::jsonb,
    1.0, true, 0)
 on conflict (id) do nothing;

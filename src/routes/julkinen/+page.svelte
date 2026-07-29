@@ -4,7 +4,7 @@
 	import { supabase } from '$lib/supabase';
 	import { formatDate, formatPlantedDate } from '$lib/format';
 	import { t } from '$lib/i18n';
-	import type { Observation, Planting, Target } from '$lib/types';
+	import type { Garden, Observation, Planting, Target } from '$lib/types';
 
 	/**
 	 * The public face of the arboretum. It reads with the anon key, so row level
@@ -15,6 +15,7 @@
 
 	let plantings = $state<Planting[]>([]);
 	let observations = $state<Observation[]>([]);
+	let publicGardens = $state<Garden[]>([]);
 	let loading = $state(true);
 
 	$effect(() => {
@@ -22,7 +23,7 @@
 	});
 
 	async function load() {
-		const [{ data: p }, { data: o }] = await Promise.all([
+		const [{ data: p }, { data: o }, { data: g }] = await Promise.all([
 			supabase
 				.from('plantings')
 				.select('*, taxa (*), trees (*)')
@@ -31,12 +32,17 @@
 				.from('observations')
 				.select('*, plantings ( id, accession_code, taxa (*) ), trees ( id, label, status )')
 				.order('observed_at', { ascending: false })
-				.limit(20)
+				.limit(20),
+			// RLS only exposes a garden once something in it is published.
+			supabase.from('gardens').select('*').order('sort_order')
 		]);
 		plantings = (p ?? []) as Planting[];
 		observations = (o ?? []) as Observation[];
+		publicGardens = (g ?? []) as Garden[];
 		loading = false;
 	}
+
+	const gardenNames = $derived(publicGardens.map((x) => x.name).join(' · '));
 
 	function asTarget(p: Planting): Target {
 		return { kind: 'planting', tree: null, planting: p, lat: p.lat, lon: p.lon, distance_m: null };
@@ -51,7 +57,7 @@
 <div class="public">
 	<header class="public-head">
 		<div class="section">
-			<p class="eyebrow">{t.app.name}</p>
+			<p class="eyebrow">{gardenNames || t.app.name}</p>
 			<h1>{t.publicSite.title}</h1>
 			<p class="intro">{t.publicSite.intro}</p>
 			<p class="stats data">

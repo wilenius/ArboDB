@@ -5,6 +5,7 @@
 	import Plate from '$lib/components/Plate.svelte';
 	import TagChip from '$lib/components/TagChip.svelte';
 	import { buildTargets, fetchPlantings, fetchTags, targetKey } from '$lib/data';
+	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
 	import { supabase, session } from '$lib/supabase';
 	import { uploadPhoto } from '$lib/photos';
@@ -42,7 +43,7 @@
 	async function load() {
 		loading = true;
 		try {
-			[plantings, tags] = await Promise.all([fetchPlantings(), fetchTags()]);
+			[plantings, tags] = await Promise.all([fetchPlantings(gardens.active?.id), fetchTags()]);
 			error = '';
 		} catch {
 			error = t.errors.load;

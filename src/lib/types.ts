@@ -16,8 +16,24 @@ export interface Taxon {
 	notes: string | null;
 }
 
+export type BoundarySource = 'drawn' | 'imported' | 'survey';
+
+export interface Garden {
+	id: string;
+	name: string;
+	notes: string | null;
+	center_lat: number | null;
+	center_lon: number | null;
+	default_zoom: number;
+	/** GeoJSON Polygon geometry in WGS84, or null until one is drawn. */
+	boundary: { type: 'Polygon'; coordinates: [number, number][][] } | null;
+	boundary_source: BoundarySource;
+	sort_order: number;
+}
+
 export interface Planting {
 	id: string;
+	garden_id: string | null;
 	taxon_id: string;
 	accession_code: string | null;
 	planted_year: number | null;

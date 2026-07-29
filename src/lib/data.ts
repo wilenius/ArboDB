@@ -27,10 +27,11 @@ export async function fetchTaxa(): Promise<Taxon[]> {
 	return data as Taxon[];
 }
 
-export async function fetchPlantings(): Promise<Planting[]> {
-	const { data, error } = await supabase
-		.from('plantings')
-		.select(PLANTING_SELECT)
+/** Scoped to one garden when given; every screen passes the active one. */
+export async function fetchPlantings(gardenId?: string | null): Promise<Planting[]> {
+	let q = supabase.from('plantings').select(PLANTING_SELECT);
+	if (gardenId) q = q.eq('garden_id', gardenId);
+	const { data, error } = await q
 		.order('planted_year', { ascending: false, nullsFirst: false })
 		.order('accession_code', { ascending: false });
 	if (error) throw error;
@@ -63,23 +64,28 @@ export async function fetchTags(): Promise<Tag[]> {
 	return data as Tag[];
 }
 
-const OBSERVATION_SELECT = `
+const observationSelect = (innerPlanting: boolean) => `
 	*,
 	observation_tags ( tag_id, tags (*) ),
 	photos (*),
 	trees ( id, label, status ),
-	plantings ( id, accession_code, count_planted, taxa (*) )
+	plantings${innerPlanting ? '!inner' : ''} ( id, garden_id, accession_code, count_planted, taxa (*) )
 `;
 
 export async function fetchObservations(opts: {
 	plantingId?: string;
 	treeId?: string;
+	gardenId?: string | null;
 	from?: string;
 	to?: string;
 	kind?: string;
 	limit?: number;
 } = {}): Promise<Observation[]> {
-	let q = supabase.from('observations').select(OBSERVATION_SELECT);
+	// Observations hang off plantings, so a garden filter has to reach through
+	// the embedded resource — and it must be an inner join, or PostgREST keeps
+	// every parent row and merely blanks the embedded one.
+	let q = supabase.from('observations').select(observationSelect(Boolean(opts.gardenId)));
+	if (opts.gardenId) q = q.eq('plantings.garden_id', opts.gardenId);
 	if (opts.plantingId) q = q.eq('planting_id', opts.plantingId);
 	if (opts.treeId) q = q.eq('tree_id', opts.treeId);
 	if (opts.from) q = q.gte('observed_at', opts.from);
@@ -89,7 +95,9 @@ export async function fetchObservations(opts: {
 	if (opts.limit) q = q.limit(opts.limit);
 	const { data, error } = await q;
 	if (error) throw error;
-	return data as Observation[];
+	// The select string is built at runtime for the inner join, so supabase-js
+	// cannot infer the row shape here and needs the widening cast.
+	return data as unknown as Observation[];
 }
 
 export async function fetchPhotos(): Promise<Photo[]> {
