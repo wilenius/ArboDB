@@ -34,7 +34,12 @@
 				if (err) throw err;
 				sent = true;
 			}
-		} catch {
+		} catch (err) {
+			// The message below names the likeliest cause, but this catch also sees
+			// an unreachable /auth/, a mismatched anon key and a 500 from GoTrue —
+			// all of which would otherwise present as "check your password" and send
+			// someone hunting in the wrong place. Keep the real one reachable.
+			console.error('[arbodb] sign-in failed:', err);
 			error = t.errors.signIn;
 		} finally {
 			busy = false;
