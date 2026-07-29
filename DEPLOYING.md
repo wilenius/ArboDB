@@ -121,35 +121,58 @@ ENABLE_ANONYMOUS_USERS=false
 yourself in step 4. Magic-link sign-in additionally needs the `SMTP_*` block
 filled in; password sign-in works without it, and for two users that is fine.
 
-### Keep the stack off the network
+### Ports: publish one, and only to localhost
 
-Exactly two services publish host ports, and at `v1.26.07` both bind to all
-interfaces. Left alone, that puts the API and the Postgres pooler straight on
-your LAN — and the pooler's port 5432 accepts password authentication. nginx
-should be the only way in.
+At `v1.26.07` exactly two services publish host ports, and all four bind to
+every interface. On a server already running other things that is both a
+collision risk and an exposure risk — the pooler's 5432 accepts password
+authentication.
 
-In `stack/docker-compose.yml`, prefix each with `127.0.0.1:`:
+The app needs **one** of them. Everything inside the stack talks over the
+compose network (`http://kong:8000`, `db:5432`), and the migration commands
+below go through `docker compose exec`, not a published port. So delete the
+other three rather than finding free numbers for them.
+
+First see what is already taken:
+
+```bash
+sudo ss -tlnp                                        # everything listening
+sudo ss -tlnp | grep -E ':(8000|8443|5432|6543)\b'   # just the four in question
+```
+
+Pick a free port for Kong and set it in `stack/.env`:
+
+```ini
+KONG_HTTP_PORT=8100
+```
+
+Then in `stack/docker-compose.yml`, bind that one to localhost and delete the
+rest:
 
 ```yaml
   kong:
     ports:
       - 127.0.0.1:${KONG_HTTP_PORT}:8000/tcp
-      - 127.0.0.1:${KONG_HTTPS_PORT}:8443/tcp
+      # deleted: ${KONG_HTTPS_PORT}:8443 — nginx terminates TLS and talks
+      # plain HTTP to Kong over the loopback.
 
   supavisor:
-    ports:
-      - 127.0.0.1:${POSTGRES_PORT}:5432
-      - 127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543
+    # ports: block deleted entirely. Nothing outside the stack connects to
+    # Postgres directly.
 ```
 
-The `db` service itself publishes nothing — it is reached over the compose
-network — so there is no third block to fix. Confirm with:
+**Do not renumber `POSTGRES_PORT` to dodge a conflict.** Unlike the others it is
+not merely a host mapping — it is the port Postgres actually listens on inside
+the container, and every service's connection string is built from it. Removing
+the published line is the fix; changing the value is a different, larger change.
+`KONG_HTTP_PORT`, `KONG_HTTPS_PORT` and `POOLER_PROXY_PORT_TRANSACTION` appear
+nowhere except their port mappings, so those are safe to change or drop.
+
+Confirm what is left, then start it:
 
 ```bash
-grep -n -A3 'ports:' stack/docker-compose.yml
+grep -n -A4 'ports:' stack/docker-compose.yml    # expect one entry, on 127.0.0.1
 ```
-
-Then start it:
 
 ```bash
 cd /srv/arbodb/stack
@@ -236,8 +259,9 @@ gets this right.
 ```bash
 cd /srv/arbodb/stack
 SERVICE_KEY=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
+KONG_PORT=$(grep '^KONG_HTTP_PORT=' .env | cut -d= -f2-)
 
-curl -s -X POST "http://127.0.0.1:8000/auth/v1/admin/users" \
+curl -s -X POST "http://127.0.0.1:$KONG_PORT/auth/v1/admin/users" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY" \
   -H "Content-Type: application/json" \
@@ -347,9 +371,10 @@ whatever listeners it finds, so both end up on 443 with the certificate.
 
 ### What the config does
 
-- Proxies **only** `/rest/`, `/auth/` and `/storage/` to Kong on
-  `127.0.0.1:8000`. Kong serves Studio on its catch-all `/` route and pg-meta on
-  `/pg/`, so a blanket `location / { proxy_pass ... }` would publish the database
+- Proxies **only** `/rest/`, `/auth/` and `/storage/` to Kong on the loopback.
+  The port in `proxy_pass` must match `KONG_HTTP_PORT` in `stack/.env` — it ships
+  as `8100`. Kong serves Studio on its catch-all `/` route and pg-meta on `/pg/`,
+  so a blanket `location / { proxy_pass ... }` would publish the database
   dashboard alongside the arboretum. Everything not in those three prefixes is
   served from disk.
 - Serves the SPA with `try_files $uri $uri/ /index.html`, so client-side routes
@@ -493,10 +518,10 @@ database dashboard along with the app.
 So tunnel to Kong, not to Studio:
 
 ```bash
-ssh -L 8000:127.0.0.1:8000 you@arbo.example.fi
+ssh -L 8100:127.0.0.1:8100 you@arb.hw.iki.fi
 ```
 
-Then open <http://127.0.0.1:8000> and sign in with `DASHBOARD_USERNAME` /
+Then open <http://127.0.0.1:8100> and sign in with `DASHBOARD_USERNAME` /
 `DASHBOARD_PASSWORD`. Use `KONG_HTTP_PORT` from `.env` if you changed it.
 
 ---
