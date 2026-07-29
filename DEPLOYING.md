@@ -140,14 +140,16 @@ sudo ss -tlnp                                        # everything listening
 sudo ss -tlnp | grep -E ':(8000|8443|5432|6543)\b'   # just the four in question
 ```
 
-Pick a free port for Kong and set it in `stack/.env`:
+Pick a free port for Kong. **The number goes in `stack/.env` and nowhere else in
+the stack:**
 
 ```ini
 KONG_HTTP_PORT=8100
 ```
 
-Then in `stack/docker-compose.yml`, bind that one to localhost and delete the
-rest:
+Then in `stack/docker-compose.yml`, add the `127.0.0.1:` prefix and delete the
+rest. Leave `${KONG_HTTP_PORT}` as a variable — Compose substitutes it from
+`.env`, so you never edit the number here:
 
 ```yaml
   kong:
@@ -159,6 +161,18 @@ rest:
   supavisor:
     # ports: block deleted entirely. Nothing outside the stack connects to
     # Postgres directly.
+```
+
+The three parts are `HOST_IP:HOST_PORT:CONTAINER_PORT`. That trailing `8000` is
+Kong's port *inside* its own container — it always listens there regardless of
+what you publish it as, so it stays 8000 whatever you choose.
+
+So the port you picked appears in exactly two files: `stack/.env`, and the
+`proxy_pass` line in the nginx config, which cannot read `.env`. Check that
+Compose resolved it as you expect:
+
+```bash
+docker compose config | grep -A5 'kong:' | grep -i published
 ```
 
 **Do not renumber `POSTGRES_PORT` to dodge a conflict.** Unlike the others it is
@@ -377,6 +391,18 @@ whatever listeners it finds, so both end up on 443 with the certificate.
   so a blanket `location / { proxy_pass ... }` would publish the database
   dashboard alongside the arboretum. Everything not in those three prefixes is
   served from disk.
+- Keeps `proxy_pass http://…` even once the site is HTTPS. TLS terminates at
+  nginx, and the hop to Kong is loopback — those packets never reach a network
+  interface, so there is nothing to encrypt them against:
+
+  ```
+  phone ──HTTPS──▶ nginx ──HTTP──▶ Kong
+         (public)          (127.0.0.1)
+  ```
+
+  Certbot edits only `listen` and the `ssl_*` directives; it does not touch
+  `proxy_pass`, and it should not. `X-Forwarded-Proto $scheme` is how the
+  upstream still knows the original request was HTTPS.
 - Serves the SPA with `try_files $uri $uri/ /index.html`, so client-side routes
   like `/kartta` and `/istutus/<uuid>` return the shell instead of 404.
 - Caches `/_app/immutable/` for a year (the filenames are content-hashed) and
