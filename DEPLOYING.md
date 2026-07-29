@@ -351,6 +351,29 @@ API under the same origin — one certificate, and no CORS to configure.
 
 ## 6. nginx
 
+### Already running nginx for other sites?
+
+Then most of this section is a no-op and you only need the server block. The
+arboretum is one more virtual host; nothing here changes global config.
+
+- Step 1's `pacman -S --needed` skips packages you already have and reconfigures
+  nothing.
+- Skip the renewal timer below — it is already running, and the new certificate
+  joins it.
+- Put the file wherever your nginx keeps vhosts. If you use
+  `sites-available` / `sites-enabled` rather than `conf.d`, put it there and
+  symlink it.
+- `sudo nginx -t` before every reload, and **reload rather than restart** so your
+  other sites do not drop connections.
+- `certbot -d arb.hw.iki.fi` issues a separate certificate for just that name and
+  leaves your existing ones alone.
+
+The one thing to check is that the port you gave Kong does not collide with
+anything already listening — see [the ports
+section](#ports-publish-one-and-only-to-localhost).
+
+### Installing it
+
 Put the built files where nginx can read them:
 
 ```bash
