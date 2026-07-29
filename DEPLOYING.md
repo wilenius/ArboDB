@@ -305,31 +305,45 @@ put it there and symlink it instead.
 
 ### Getting the certificate
 
-The file ships with the certbot-managed TLS lines already in place, which is a
-chicken-and-egg problem the first time: nginx will not start while it references
-a certificate that does not exist yet. So comment out the five
-`# managed by Certbot` lines plus the whole second `server` block, change
-`listen 443 ssl` to `listen 80`, and then:
+The file ships listening on port 80 with no TLS directives, because certbot
+writes those itself and nginx will not start while it references a certificate
+that does not exist yet.
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d arb.hw.iki.fi
 ```
 
-Certbot writes those lines back itself, adds the port-80 redirect block, and
-reloads. Afterwards the file should look like the version in the repo.
+Certbot rewrites `listen 80` to `listen 443 ssl`, adds the `ssl_certificate`
+lines and the `options-ssl-nginx` / `ssl_dhparam` includes, appends a second
+server block redirecting port 80 to https, and reloads. Do not add any of that
+by hand — certbot owns those lines and rewrites them on renewal.
+
+On Arch and Manjaro the renewal timer is **not** enabled by `pacman -S certbot`,
+so a certificate that works today quietly expires in 90 days:
+
+```bash
+systemctl is-enabled certbot-renew.timer   # expect "enabled"
+sudo systemctl enable --now certbot-renew.timer
+sudo certbot renew --dry-run               # proves renewal works before it matters
+```
+
+If you already have certificates renewing for `mf.hw.iki.fi`, this is presumably
+handled and the new domain joins the same timer.
 
 ### If the hostname has an AAAA record
-
-`listen 443 ssl` binds IPv4 only. If the name resolves over IPv6 as well and
-nginx is not listening there, IPv6-only clients get connection refused — and
-Finnish mobile networks do hand out IPv6, so this bites exactly the phone in the
-garden while working perfectly on the desktop. Uncomment the
-`listen [::]:443 ssl;` line, or:
 
 ```bash
 dig +short AAAA arb.hw.iki.fi     # empty means IPv4 only, nothing to do
 ```
+
+`listen 80` / `listen 443 ssl` bind IPv4 only. If the name also resolves over
+IPv6 and nginx is not listening there, IPv6-only clients get connection refused
+— and Finnish mobile networks do hand out IPv6, so this bites exactly the phone
+in the garden while working perfectly on the desktop.
+
+Uncomment the `listen [::]:80;` line **before** running certbot; it converts
+whatever listeners it finds, so both end up on 443 with the certificate.
 
 ### What the config does
 
