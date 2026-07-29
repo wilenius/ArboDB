@@ -159,7 +159,7 @@ direct labels and a table view as the required relief.
 
 **[`DEPLOYING.md`](DEPLOYING.md)** is the full walkthrough for self-hosting the
 whole stack on a Manjaro (or any Arch-based) server: Supabase in Docker, the SPA
-built to static files, Caddy in front for HTTPS, backups on a systemd timer.
+built to static files, nginx in front for HTTPS, backups on a systemd timer.
 
 The short version if you would rather use hosted Supabase and a static host:
 `npm run build` emits a static SPA to `build/`. Point `PUBLIC_SUPABASE_URL` and

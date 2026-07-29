@@ -1,7 +1,7 @@
 # Deploying ArboDB on a Manjaro server
 
 This puts the whole thing on one machine: the Supabase stack in Docker, the app
-built to static files, and Caddy in front doing HTTPS. It ends with the same
+built to static files, and nginx in front doing HTTPS. It ends with the same
 demo garden you see locally, so you can confirm the deployment works before
 replacing the contents with real data.
 
@@ -11,9 +11,8 @@ cloud account except the free Maanmittauslaitos API key.
 **One thing to decide first: the app must be served over HTTPS.** Field mode
 reads the device GPS, and browsers only expose `navigator.geolocation` in a
 secure context. Over plain `http://` on a LAN address, the whole point of the
-app stops working. [Certificates without a public
-domain](#certificates-without-a-public-domain) covers the options if the server
-has no public domain.
+app stops working. [Not a public domain?](#not-a-public-domain) covers the
+options if the server has no public hostname.
 
 ---
 
@@ -21,7 +20,7 @@ has no public domain.
 
 ```bash
 sudo pacman -Syu
-sudo pacman -S --needed docker docker-compose git nodejs npm caddy postgresql-libs
+sudo pacman -S --needed docker docker-compose git nodejs npm nginx certbot certbot-nginx postgresql-libs
 ```
 
 `postgresql-libs` is only for the `psql` client — the database itself runs in
@@ -126,7 +125,7 @@ filled in; password sign-in works without it, and for two users that is fine.
 
 Exactly two services publish host ports, and at `v1.26.07` both bind to all
 interfaces. Left alone, that puts the API and the Postgres pooler straight on
-your LAN — and the pooler's port 5432 accepts password authentication. Caddy
+your LAN — and the pooler's port 5432 accepts password authentication. nginx
 should be the only way in.
 
 In `stack/docker-compose.yml`, prefix each with `127.0.0.1:`:
@@ -278,66 +277,86 @@ npm ci
 npm run build        # emits build/
 ```
 
-`PUBLIC_SUPABASE_URL` points at the app's own hostname because Caddy proxies the
+`PUBLIC_SUPABASE_URL` points at the app's own hostname because nginx proxies the
 API under the same origin — one certificate, and no CORS to configure.
 
 ---
 
-## 6. Caddy
+## 6. nginx
+
+Put the built files where nginx can read them:
 
 ```bash
 sudo mkdir -p /srv/arbodb/www
 sudo rsync -a --delete /srv/arbodb/app/build/ /srv/arbodb/www/
 ```
 
-`/etc/caddy/Caddyfile`:
-
-```caddyfile
-arbo.example.fi {
-	encode zstd gzip
-
-	# The three Supabase APIs this app uses. Studio is deliberately not proxied —
-	# reach it through an SSH tunnel instead of exposing it.
-	@api path /rest/* /auth/* /storage/*
-	handle @api {
-		reverse_proxy 127.0.0.1:8000
-	}
-
-	handle {
-		root * /srv/arbodb/www
-
-		# Hashed asset filenames are immutable; the shell must never be cached, or
-		# a deploy leaves clients on a stale bundle pointing at old asset URLs.
-		@assets path /_app/immutable/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		header /index.html Cache-Control "no-cache"
-		header /manifest.webmanifest Cache-Control "no-cache"
-
-		# Static adapter with a SPA fallback: unknown paths are client routes.
-		try_files {path} /index.html
-		file_server
-	}
-}
-```
+The server block is in this repo at
+[`deploy/nginx-arbodb.conf`](deploy/nginx-arbodb.conf). Install it, with your
+own hostname substituted:
 
 ```bash
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl enable --now caddy
+sudo cp /srv/arbodb/app/deploy/nginx-arbodb.conf /etc/nginx/conf.d/arbodb.conf
+sudo sed -i 's/arb\.hw\.iki\.fi/YOUR-HOSTNAME/g' /etc/nginx/conf.d/arbodb.conf
 ```
 
-With a public domain pointed at the box and ports 80/443 open, Caddy gets a
-Let's Encrypt certificate on its own.
+If your nginx uses `sites-available` / `sites-enabled` rather than `conf.d`,
+put it there and symlink it instead.
 
-### Certificates without a public domain
+### Getting the certificate
 
-If this is a home server on a LAN, you still need HTTPS for GPS to work:
+The file ships with the certbot-managed TLS lines already in place, which is a
+chicken-and-egg problem the first time: nginx will not start while it references
+a certificate that does not exist yet. So comment out the five
+`# managed by Certbot` lines plus the whole second `server` block, change
+`listen 443 ssl` to `listen 80`, and then:
 
-- **Tailscale** is the least painful. `tailscale cert <host>.<tailnet>.ts.net`
-  issues a real, publicly-trusted certificate for a private machine. Point the
-  Caddyfile's site block at that hostname and `tls` at the issued files.
-- **Caddy's internal CA** works offline: replace the site address with the LAN
-  name and add `tls internal`. You then have to install Caddy's root certificate
-  on the phone, or the browser refuses the origin — which also blocks GPS.
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d arb.hw.iki.fi
+```
+
+Certbot writes those lines back itself, adds the port-80 redirect block, and
+reloads. Afterwards the file should look like the version in the repo.
+
+### If the hostname has an AAAA record
+
+`listen 443 ssl` binds IPv4 only. If the name resolves over IPv6 as well and
+nginx is not listening there, IPv6-only clients get connection refused — and
+Finnish mobile networks do hand out IPv6, so this bites exactly the phone in the
+garden while working perfectly on the desktop. Uncomment the
+`listen [::]:443 ssl;` line, or:
+
+```bash
+dig +short AAAA arb.hw.iki.fi     # empty means IPv4 only, nothing to do
+```
+
+### What the config does
+
+- Proxies **only** `/rest/`, `/auth/` and `/storage/` to Kong on
+  `127.0.0.1:8000`. Kong serves Studio on its catch-all `/` route and pg-meta on
+  `/pg/`, so a blanket `location / { proxy_pass ... }` would publish the database
+  dashboard alongside the arboretum. Everything not in those three prefixes is
+  served from disk.
+- Serves the SPA with `try_files $uri $uri/ /index.html`, so client-side routes
+  like `/kartta` and `/istutus/<uuid>` return the shell instead of 404.
+- Caches `/_app/immutable/` for a year (the filenames are content-hashed) and
+  marks `index.html`, `manifest.webmanifest` and `_app/version.json` `no-cache`.
+  Getting that backwards leaves clients on a stale shell pointing at asset URLs
+  that no longer exist.
+- Sets `client_max_body_size 25M` for photo and map-layer uploads, which travel
+  through `/storage/`. The default 1M would reject them.
+- Has no websocket upgrade block, because the app uses no realtime
+  subscriptions. Add one if that changes.
+
+### Not a public domain?
+
+You still need HTTPS for GPS to work. **Tailscale** is the least painful route:
+`tailscale cert <host>.<tailnet>.ts.net` issues a real, publicly-trusted
+certificate for a private machine, and you point `ssl_certificate` at the files
+it writes. A self-signed certificate also works, but the root has to be
+installed on the phone or the browser refuses the origin — which blocks GPS
+just the same.
 
 Plain `http://` to a LAN IP is the one option that does not work. It looks fine
 on the desktop and then silently fails in the field.
@@ -452,7 +471,7 @@ it will add a second copy of the demo garden.
 ### Reaching Studio
 
 Studio has no host port of its own — Kong serves it as the catch-all `/` route,
-behind basic auth. Since the Caddyfile proxies only `/rest/*`, `/auth/*` and
+behind basic auth. Since the server block proxies only `/rest/*`, `/auth/*` and
 `/storage/*`, Studio is not reachable from outside, and neither is the `/pg/*`
 route into pg-meta. That is deliberate: proxying `/` to Kong would publish the
 database dashboard along with the app.
@@ -497,5 +516,4 @@ generated from the same `JWT_SECRET` the stack is running. Regenerate both
 together and rebuild.
 
 **GPS never gets a fix on the phone, but works on the desktop** — the site is not
-on a secure origin. See [certificates without a public
-domain](#certificates-without-a-public-domain).
+on a secure origin. See [Not a public domain?](#not-a-public-domain).
