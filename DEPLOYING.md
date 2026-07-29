@@ -23,6 +23,20 @@ sudo pacman -Syu
 sudo pacman -S --needed docker docker-compose git nodejs npm nginx certbot certbot-nginx postgresql-libs
 ```
 
+**If `pacman -Syu` upgraded the kernel, reboot before going further.** Arch and
+Manjaro replace `/usr/lib/modules/<running-version>` with the new kernel's
+directory, so the running kernel can no longer load any module it has not
+already loaded — including the netfilter modules Docker needs to set up
+networking. Check:
+
+```bash
+uname -r ; ls /usr/lib/modules/
+```
+
+If the version `uname -r` prints is not one of the directories listed, reboot.
+Skipping this produces a confusing failure two steps later, at
+`docker compose up`, rather than here — see [troubleshooting](#troubleshooting).
+
 `postgresql-libs` is only for the `psql` client — the database itself runs in
 Docker. Check Node is 20 or newer with `node -v`.
 
@@ -553,6 +567,15 @@ Then open <http://127.0.0.1:8100> and sign in with `DASHBOARD_USERNAME` /
 ---
 
 ## Troubleshooting
+
+**`Failed to Setup IP tables … MASQUERADE revision 0 not supported, missing
+kernel module?`** at `docker compose up` — the kernel was upgraded and the
+machine has not been rebooted. `pacman` swaps `/usr/lib/modules/` to the new
+version, so the running kernel cannot load `xt_MASQUERADE` any more and Docker
+cannot create the network's NAT rule. Confirm with
+`uname -r ; ls /usr/lib/modules/`; if the running version is missing from that
+listing, reboot. The half-created network cleans itself up, but
+`docker network prune` is harmless if one is left behind.
 
 **"An invalid response was received from the upstream server"** — Kong caches
 container IPs and holds stale ones after the database container is recreated.
