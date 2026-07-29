@@ -54,18 +54,32 @@ either way.
 ## 2. The Supabase stack
 
 Supabase publishes a Docker Compose bundle. Pin it to a tag rather than tracking
-`master`, so an upstream change never surprises a running arboretum.
+`master`, so an upstream change never surprises a running arboretum. `--branch`
+takes a tag, and combined with `--depth 1` you get exactly that one commit.
 
 ```bash
 sudo mkdir -p /srv/arbodb && sudo chown "$USER" /srv/arbodb
 cd /srv/arbodb
 
-git clone --depth 1 https://github.com/supabase/supabase.git supabase-src
-cd supabase-src && git log -1 --format='pinned at %H' && cd ..
+SUPABASE_TAG=v1.26.07
+git clone --depth 1 --branch "$SUPABASE_TAG" \
+  https://github.com/supabase/supabase.git supabase-src
 
 cp -r supabase-src/docker stack
 cp stack/.env.example stack/.env
+echo "$SUPABASE_TAG" > /srv/arbodb/STACK_VERSION
 ```
+
+`v1.26.07` is what this guide was checked against. List newer ones without
+cloning:
+
+```bash
+git ls-remote --tags --refs https://github.com/supabase/supabase.git | tail -5
+```
+
+Note that `--depth 1` fetches a single commit, so you cannot later `git checkout`
+a different tag in that clone — to change versions, clone again at the new tag.
+That is the point: the version you deployed is the version sitting on disk.
 
 ### Secrets
 
@@ -108,17 +122,35 @@ ENABLE_ANONYMOUS_USERS=false
 yourself in step 4. Magic-link sign-in additionally needs the `SMTP_*` block
 filled in; password sign-in works without it, and for two users that is fine.
 
-### Keep the database off the network
+### Keep the stack off the network
 
-In `stack/docker-compose.yml`, make sure the published ports bind to localhost
-only. Caddy is the single way in.
+Exactly two services publish host ports, and at `v1.26.07` both bind to all
+interfaces. Left alone, that puts the API and the Postgres pooler straight on
+your LAN — and the pooler's port 5432 accepts password authentication. Caddy
+should be the only way in.
+
+In `stack/docker-compose.yml`, prefix each with `127.0.0.1:`:
 
 ```yaml
-ports:
-  - "127.0.0.1:${KONG_HTTP_PORT}:8000/tcp"
+  kong:
+    ports:
+      - 127.0.0.1:${KONG_HTTP_PORT}:8000/tcp
+      - 127.0.0.1:${KONG_HTTPS_PORT}:8443/tcp
+
+  supavisor:
+    ports:
+      - 127.0.0.1:${POSTGRES_PORT}:5432
+      - 127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543
 ```
 
-Do the same for the `db` service's `5432` if it publishes one. Then start it:
+The `db` service itself publishes nothing — it is reached over the compose
+network — so there is no third block to fix. Confirm with:
+
+```bash
+grep -n -A3 'ports:' stack/docker-compose.yml
+```
+
+Then start it:
 
 ```bash
 cd /srv/arbodb/stack
@@ -315,20 +347,19 @@ on the desktop and then silently fails in the field.
 ## 7. Keeping it alive
 
 The stack comes back on boot when two things are both true: the compose services
-carry a restart policy, and the Docker daemon starts at boot. Check rather than
-assume — this is the part nobody notices is broken until the first power cut.
+carry a restart policy, and the Docker daemon starts at boot. At `v1.26.07` all
+11 services carry `restart: unless-stopped`, so the first half is already done.
+Confirm the second, and confirm the first if you pinned a different tag:
 
 ```bash
 cd /srv/arbodb/stack
-grep -c 'unless-stopped\|restart: always' docker-compose.yml   # expect > 0
-systemctl is-enabled docker.service docker.socket              # expect an "enabled"
+grep -c 'restart: unless-stopped' docker-compose.yml   # 11 at v1.26.07
+systemctl is-enabled docker.service docker.socket      # expect an "enabled"
 ```
 
-If the compose file has no restart policy, add `restart: unless-stopped` to the
-services, or the stack stays down until started by hand.
-
 The honest test is to reboot the server once, before it holds anything you care
-about, and confirm the app answers on its own.
+about, and confirm the app answers on its own. This is the part nobody notices
+is broken until the first power cut.
 
 ### Backups
 
@@ -420,14 +451,20 @@ it will add a second copy of the demo garden.
 
 ### Reaching Studio
 
-Studio is not proxied. Tunnel to it:
+Studio has no host port of its own — Kong serves it as the catch-all `/` route,
+behind basic auth. Since the Caddyfile proxies only `/rest/*`, `/auth/*` and
+`/storage/*`, Studio is not reachable from outside, and neither is the `/pg/*`
+route into pg-meta. That is deliberate: proxying `/` to Kong would publish the
+database dashboard along with the app.
+
+So tunnel to Kong, not to Studio:
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 you@arbo.example.fi
+ssh -L 8000:127.0.0.1:8000 you@arbo.example.fi
 ```
 
-Then open <http://127.0.0.1:3000> and sign in with `DASHBOARD_USERNAME` /
-`DASHBOARD_PASSWORD`.
+Then open <http://127.0.0.1:8000> and sign in with `DASHBOARD_USERNAME` /
+`DASHBOARD_PASSWORD`. Use `KONG_HTTP_PORT` from `.env` if you changed it.
 
 ---
 
