@@ -36,8 +36,11 @@ Magic-link sign-in also works locally — the mail lands in Mailpit at
 <http://127.0.0.1:54324>.
 
 `npm run db:reset` reapplies the migrations and reloads the demo data: one
-garden — an exact 200 x 100 m (2 ha) plot in Uusimaa — holding 15 taxa, 17
-plantings, 20 individually tracked specimens, and 33 observations.
+garden — "Torppa", the 2.32 ha plot in Western Uusimaa, outlined by hand over
+the aerial photo — holding 15 taxa, 17 plantings, 20 individually tracked
+specimens, and 33 observations. Every specimen sits inside the boundary with at
+least 6 m to spare, so the map opens on something that looks like the real site.
+The boundary is the real one; the specimens in it are invented.
 
 ### Aerial imagery
 
@@ -95,6 +98,10 @@ src/lib/
 supabase/
   migrations/        Schema, triggers, grants, RLS, storage buckets
   seed.sql           Demo arboretum + demo accounts
+
+scripts/
+  apply-migrations.sh  Applies each migration once; the migrations are not idempotent
+  make-keys.mjs        Generates self-hosting secrets locally, not on a web page
 ```
 
 Routes are Finnish: `/` (field mode), `/kartta`, `/rekisteri`, `/puutarhat`,
@@ -150,20 +157,27 @@ direct labels and a table view as the required relief.
 
 ## Deploying
 
-`npm run build` emits a static SPA to `build/` — drop it on Cloudflare Pages or
-Vercel free tier. Point `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` at
-a hosted Supabase project in an **EU region**, then apply the migration:
+**[`DEPLOYING.md`](DEPLOYING.md)** is the full walkthrough for self-hosting the
+whole stack on a Manjaro (or any Arch-based) server: Supabase in Docker, the SPA
+built to static files, Caddy in front for HTTPS, backups on a systemd timer.
 
-```bash
-supabase link --project-ref <ref>
-supabase db push
-```
+The short version if you would rather use hosted Supabase and a static host:
+`npm run build` emits a static SPA to `build/`. Point `PUBLIC_SUPABASE_URL` and
+`PUBLIC_SUPABASE_ANON_KEY` at a Supabase project in an **EU region**, then
+`supabase link --project-ref <ref> && supabase db push`.
 
-Do not run `seed.sql` against production — it creates demo accounts with known
-passwords. Invite the two real accounts through Supabase Auth instead.
+Either way:
 
-Backups: Supabase's built-in daily backups cover the free tier's retention;
-`npm run db:dump` writes a `pg_dump` to `backup/` for keeping your own copies.
+- **Serve it over HTTPS.** Field mode reads the device GPS, and browsers only
+  expose geolocation on a secure origin. Plain `http://` to a LAN address looks
+  fine on a desktop and then fails in the field.
+- **Disable open registration.** Every signed-in account can write to the whole
+  register — that is what the RLS policies say — so sign-up must be off and
+  accounts created by hand.
+- **Do not run `seed.sql` against real data.** It creates demo accounts whose
+  passwords are published in this repository.
+
+`npm run db:dump` writes a `pg_dump` to `backup/` for local copies.
 
 ---
 

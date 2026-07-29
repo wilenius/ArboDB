@@ -1,0 +1,433 @@
+# Deploying ArboDB on a Manjaro server
+
+This puts the whole thing on one machine: the Supabase stack in Docker, the app
+built to static files, and Caddy in front doing HTTPS. It ends with the same
+demo garden you see locally, so you can confirm the deployment works before
+replacing the contents with real data.
+
+Budget an hour. Everything here is `sudo`-on-your-own-box work; nothing needs a
+cloud account except the free Maanmittauslaitos API key.
+
+**One thing to decide first: the app must be served over HTTPS.** Field mode
+reads the device GPS, and browsers only expose `navigator.geolocation` in a
+secure context. Over plain `http://` on a LAN address, the whole point of the
+app stops working. [Certificates without a public
+domain](#certificates-without-a-public-domain) covers the options if the server
+has no public domain.
+
+---
+
+## 1. Packages
+
+```bash
+sudo pacman -Syu
+sudo pacman -S --needed docker docker-compose git nodejs npm caddy postgresql-libs
+
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"     # log out and back in for this to take effect
+```
+
+`postgresql-libs` is only for the `psql` client — the database itself runs in
+Docker. Check Node is 20 or newer with `node -v`.
+
+---
+
+## 2. The Supabase stack
+
+Supabase publishes a Docker Compose bundle. Pin it to a tag rather than tracking
+`master`, so an upstream change never surprises a running arboretum.
+
+```bash
+sudo mkdir -p /srv/arbodb && sudo chown "$USER" /srv/arbodb
+cd /srv/arbodb
+
+git clone --depth 1 https://github.com/supabase/supabase.git supabase-src
+cd supabase-src && git log -1 --format='pinned at %H' && cd ..
+
+cp -r supabase-src/docker stack
+cp stack/.env.example stack/.env
+```
+
+### Secrets
+
+The upstream instructions send you to a web page to mint the API keys, which
+means pasting your server's signing secret into someone else's website. They are
+ordinary HS256 JWTs, so generate them locally instead:
+
+```bash
+cd /path/to/ArboDB
+node scripts/make-keys.mjs --years 10
+```
+
+That prints `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`,
+`DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, `SECRET_KEY_BASE` and
+`VAULT_ENC_KEY`. Copy each value into the matching key in `/srv/arbodb/stack/.env`.
+
+- `ANON_KEY` is public — it ships inside the browser bundle, and row level
+  security is what protects the data.
+- `SERVICE_ROLE_KEY` **bypasses row level security entirely**. It stays on the
+  server. Never put it in a `PUBLIC_` variable.
+
+### The rest of `.env`
+
+Set these, replacing `arbo.example.fi` with your hostname:
+
+```ini
+SITE_URL=https://arbo.example.fi
+API_EXTERNAL_URL=https://arbo.example.fi
+SUPABASE_PUBLIC_URL=https://arbo.example.fi
+
+# Any signed-in account can write to the whole register — see the RLS policies in
+# the migration. So open registration would hand the arboretum to the internet.
+DISABLE_SIGNUP=true
+ENABLE_EMAIL_SIGNUP=true
+ENABLE_EMAIL_AUTOCONFIRM=true
+ENABLE_ANONYMOUS_USERS=false
+```
+
+`ENABLE_EMAIL_AUTOCONFIRM=true` is right here because you create the accounts
+yourself in step 4. Magic-link sign-in additionally needs the `SMTP_*` block
+filled in; password sign-in works without it, and for two users that is fine.
+
+### Keep the database off the network
+
+In `stack/docker-compose.yml`, make sure the published ports bind to localhost
+only. Caddy is the single way in.
+
+```yaml
+ports:
+  - "127.0.0.1:${KONG_HTTP_PORT}:8000/tcp"
+```
+
+Do the same for the `db` service's `5432` if it publishes one. Then start it:
+
+```bash
+cd /srv/arbodb/stack
+docker compose up -d
+docker compose ps            # every service should be running or healthy
+```
+
+Give it a minute on first boot — Postgres initialises before the rest come up.
+
+---
+
+## 3. Schema and demo data
+
+From your ArboDB checkout on the server:
+
+```bash
+cd /srv/arbodb
+git clone <your-arbodb-remote> app     # or rsync the working copy over
+cd app
+```
+
+Wait until `docker compose ps` shows everything healthy before this step. The
+migrations touch `auth.users` and `storage.buckets`, and those schemas are
+created by the auth and storage services during their own first-boot migrations.
+Run too early and you get `relation "storage.buckets" does not exist`.
+
+Apply the schema from the stack directory:
+
+```bash
+cd /srv/arbodb/stack
+MIGRATIONS=/srv/arbodb/app/supabase/migrations /srv/arbodb/app/scripts/apply-migrations.sh
+```
+
+The script applies each migration exactly once, in filename order, recording
+what it has done in an `arbodb_migrations` table. Each file runs inside a
+transaction together with its own bookkeeping row, so a migration that fails
+rolls back completely and is retried next run rather than being recorded as
+done. It exits non-zero on failure.
+
+This matters because the migration files are ordinary `create table` /
+`create policy` statements — **they are not idempotent**. Re-running one by hand
+fails partway through and leaves a schema that is tedious to unpick. Let the
+script decide what to apply.
+
+Then the demo garden — the Torppa plot, 15 taxa, 17 plantings, 20 specimens, 33
+observations:
+
+```bash
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < /srv/arbodb/app/supabase/seed.sql
+```
+
+Verify:
+
+```bash
+docker compose exec -T db psql -U postgres -d postgres -c \
+  "select name, boundary_source, (select count(*) from plantings) as plantings from gardens;"
+```
+
+You should see `Torppa | drawn | 17`.
+
+### Delete the demo accounts
+
+`seed.sql` also creates two accounts whose passwords are published in this
+repository. Remove them before the server is reachable:
+
+```bash
+docker compose exec -T db psql -U postgres -d postgres -c \
+  "delete from auth.users where email like '%@arbodb.test';"
+```
+
+Nothing in the arboretum schema references `auth.users`, so this deletes the
+logins and leaves every planting, specimen and observation untouched.
+
+---
+
+## 4. Create the real accounts
+
+Use the Auth admin API rather than inserting into `auth.users` by hand. GoTrue
+reads its token columns into plain strings and a `NULL` there breaks *every*
+sign-in with a confusing "Database error querying schema" — the admin endpoint
+gets this right.
+
+```bash
+cd /srv/arbodb/stack
+SERVICE_KEY=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
+
+curl -s -X POST "http://127.0.0.1:8000/auth/v1/admin/users" \
+  -H "apikey: $SERVICE_KEY" \
+  -H "Authorization: Bearer $SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"friend@example.fi","password":"CHANGE-ME","email_confirm":true}'
+```
+
+Repeat for your own account. Pick the passwords with a password manager; with
+`DISABLE_SIGNUP=true` these are the only two ways in.
+
+---
+
+## 5. Build the app
+
+`PUBLIC_*` variables are inlined into the bundle at build time, not read at
+runtime. So `.env` must be correct **before** `npm run build`, and changing the
+URL later means rebuilding.
+
+```bash
+cd /srv/arbodb/app
+cp .env.example .env
+```
+
+```ini
+PUBLIC_SUPABASE_URL=https://arbo.example.fi
+PUBLIC_SUPABASE_ANON_KEY=<the ANON_KEY from step 2>
+PUBLIC_MML_API_KEY=<your Maanmittauslaitos key>
+PUBLIC_MAP_CENTER_LAT=60.09336
+PUBLIC_MAP_CENTER_LON=23.02110
+PUBLIC_MAP_ZOOM=17
+```
+
+The map centre is only a fallback for before any garden exists; the Torppa row
+carries its own centre and wins.
+
+```bash
+npm ci
+npm run build        # emits build/
+```
+
+`PUBLIC_SUPABASE_URL` points at the app's own hostname because Caddy proxies the
+API under the same origin — one certificate, and no CORS to configure.
+
+---
+
+## 6. Caddy
+
+```bash
+sudo mkdir -p /srv/arbodb/www
+sudo rsync -a --delete /srv/arbodb/app/build/ /srv/arbodb/www/
+```
+
+`/etc/caddy/Caddyfile`:
+
+```caddyfile
+arbo.example.fi {
+	encode zstd gzip
+
+	# The three Supabase APIs this app uses. Studio is deliberately not proxied —
+	# reach it through an SSH tunnel instead of exposing it.
+	@api path /rest/* /auth/* /storage/*
+	handle @api {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		root * /srv/arbodb/www
+
+		# Hashed asset filenames are immutable; the shell must never be cached, or
+		# a deploy leaves clients on a stale bundle pointing at old asset URLs.
+		@assets path /_app/immutable/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		header /manifest.webmanifest Cache-Control "no-cache"
+
+		# Static adapter with a SPA fallback: unknown paths are client routes.
+		try_files {path} /index.html
+		file_server
+	}
+}
+```
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl enable --now caddy
+```
+
+With a public domain pointed at the box and ports 80/443 open, Caddy gets a
+Let's Encrypt certificate on its own.
+
+### Certificates without a public domain
+
+If this is a home server on a LAN, you still need HTTPS for GPS to work:
+
+- **Tailscale** is the least painful. `tailscale cert <host>.<tailnet>.ts.net`
+  issues a real, publicly-trusted certificate for a private machine. Point the
+  Caddyfile's site block at that hostname and `tls` at the issued files.
+- **Caddy's internal CA** works offline: replace the site address with the LAN
+  name and add `tls internal`. You then have to install Caddy's root certificate
+  on the phone, or the browser refuses the origin — which also blocks GPS.
+
+Plain `http://` to a LAN IP is the one option that does not work. It looks fine
+on the desktop and then silently fails in the field.
+
+---
+
+## 7. Keeping it alive
+
+Docker Compose restarts the stack on boot if the services carry
+`restart: unless-stopped` (the upstream file does) and `docker.service` is
+enabled, which step 1 did.
+
+### Backups
+
+Two things need backing up: the database, and the uploaded photos.
+
+Put the work in a script rather than in `ExecStart` — systemd has its own
+opinions about `$`, and a backup that silently writes to a file literally named
+`$(date)` is worse than no backup.
+
+`/srv/arbodb/backup.sh`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /srv/arbodb/stack
+out=/srv/arbodb/backup
+day=$(date +%Y%m%d)
+mkdir -p "$out"
+
+docker compose exec -T db pg_dump -U postgres -Fc postgres > "$out/arbodb-$day.dump"
+tar czf "$out/storage-$day.tgz" -C /srv/arbodb/stack volumes/storage
+find "$out" -name '*.dump' -o -name '*.tgz' -mtime +30 -delete
+
+# An empty dump is a failed dump. Fail loudly so the timer reports it.
+test -s "$out/arbodb-$day.dump"
+```
+
+```bash
+chmod +x /srv/arbodb/backup.sh
+```
+
+`/etc/systemd/system/arbodb-backup.service`:
+
+```ini
+[Unit]
+Description=ArboDB backup
+
+[Service]
+Type=oneshot
+ExecStart=/srv/arbodb/backup.sh
+```
+
+`/etc/systemd/system/arbodb-backup.timer`:
+
+```ini
+[Unit]
+Description=Nightly ArboDB backup
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now arbodb-backup.timer
+sudo systemctl start arbodb-backup.service    # run once now
+ls -la /srv/arbodb/backup                     # and check something landed
+```
+
+A backup you have never restored is a guess — run `pg_restore --list` against
+the dump once to confirm it holds tables and not an error message.
+
+Copy `/srv/arbodb/backup` off the machine periodically. A dump sitting on the
+same disk as the database does not survive the disk.
+
+### Updating the app
+
+```bash
+cd /srv/arbodb/app
+git pull
+npm ci && npm run build
+sudo rsync -a --delete build/ /srv/arbodb/www/
+
+# New migrations, if any. Already-applied ones are skipped.
+cd /srv/arbodb/stack
+MIGRATIONS=/srv/arbodb/app/supabase/migrations /srv/arbodb/app/scripts/apply-migrations.sh
+```
+
+Run `sudo systemctl start arbodb-backup.service` first — a schema change is
+exactly when you want last night's dump to be this morning's.
+
+Never run `seed.sql` against a server holding real data. It is demo content, and
+it will add a second copy of the demo garden.
+
+### Reaching Studio
+
+Studio is not proxied. Tunnel to it:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 you@arbo.example.fi
+```
+
+Then open <http://127.0.0.1:3000> and sign in with `DASHBOARD_USERNAME` /
+`DASHBOARD_PASSWORD`.
+
+---
+
+## Troubleshooting
+
+**"An invalid response was received from the upstream server"** — Kong caches
+container IPs and holds stale ones after the database container is recreated.
+`docker compose restart kong`.
+
+**Sign-in fails with "Database error querying schema"** — a row in `auth.users`
+has `NULL` in one of the token columns. Created through the admin API in step 4
+this cannot happen; hand-inserted rows must set `confirmation_token`,
+`recovery_token`, `email_change` and `email_change_token_new` to `''`.
+
+**`relation "storage.buckets" does not exist`** while applying migrations — the
+storage service had not finished its own first-boot migrations. Wait for
+`docker compose ps` to show it healthy and run the script again; the failed
+migration was rolled back, so it simply retries.
+
+**`permission denied for table plantings`** — the migration's `GRANT` block did
+not run. Grants and RLS policies are separate gates and PostgREST needs both.
+Check `select * from arbodb_migrations;` to see what actually applied.
+
+**The map shows OpenStreetMap instead of the aerial photo** — `PUBLIC_MML_API_KEY`
+was empty at build time. Fix `.env` and rebuild; the app degrades deliberately
+rather than showing a broken map.
+
+**The app loads but every request 401s** — `ANON_KEY` in the app's `.env` was not
+generated from the same `JWT_SECRET` the stack is running. Regenerate both
+together and rebuild.
+
+**GPS never gets a fix on the phone, but works on the desktop** — the site is not
+on a secure origin. See [certificates without a public
+domain](#certificates-without-a-public-domain).

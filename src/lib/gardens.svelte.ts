@@ -13,6 +13,16 @@ import type { Garden } from './types';
 
 const STORAGE_KEY = 'arbodb-garden';
 
+/**
+ * An unset env variable is `''`, and `Number('')` is 0 — while a misspelt one is
+ * NaN. Neither is caught by `??`, so both have to be rejected explicitly or the
+ * map opens on null island.
+ */
+function num(raw: string | undefined, fallback: number): number {
+	const n = Number(raw);
+	return raw && Number.isFinite(n) ? n : fallback;
+}
+
 class GardenStore {
 	all = $state<Garden[]>([]);
 	activeId = $state<string | null>(null);
@@ -57,9 +67,9 @@ class GardenStore {
 	/** Where the map should open for a garden: its centre, or the env fallback. */
 	view(garden: Garden | null = this.active): { lat: number; lon: number; zoom: number } {
 		return {
-			lat: garden?.center_lat ?? Number(PUBLIC_MAP_CENTER_LAT) ?? 60.3308,
-			lon: garden?.center_lon ?? Number(PUBLIC_MAP_CENTER_LON) ?? 24.6641,
-			zoom: garden?.default_zoom ?? Number(PUBLIC_MAP_ZOOM) ?? 17
+			lat: garden?.center_lat ?? num(PUBLIC_MAP_CENTER_LAT, 60.09336),
+			lon: garden?.center_lon ?? num(PUBLIC_MAP_CENTER_LON, 23.02110),
+			zoom: garden?.default_zoom ?? num(PUBLIC_MAP_ZOOM, 17)
 		};
 	}
 }
