@@ -38,9 +38,11 @@ Magic-link sign-in also works locally — the mail lands in Mailpit at
 `npm run db:reset` reapplies the migrations and reloads the demo data: one
 garden — "Torppa", the 2.32 ha plot in Western Uusimaa, outlined by hand over
 the aerial photo — holding 15 taxa, 17 plantings, 20 individually tracked
-specimens, and 33 observations. Every specimen sits inside the boundary with at
-least 6 m to spare, so the map opens on something that looks like the real site.
-The boundary is the real one; the specimens in it are invented.
+specimens, 38 observations of which 5 are plot-level diary entries, and four
+drawn map features — a path, a stone wall, a game fence and a lawn. Every
+specimen sits inside the boundary with at least 6 m to spare, so the map opens
+on something that looks like the real site. The boundary is the real one;
+everything standing in it is invented.
 
 ### Aerial imagery
 
@@ -84,9 +86,24 @@ the register's.
 | 7. Reports, exports, print CSS | Done — registry, observations, growth charts, gallery; CSV + XLSX |
 | 8. Public publishing routes | Done — `/julkinen`, anon key + RLS |
 
-Added after the first pass: **gardens**. A garden is the plot a planting stands
-in — it owns the name, the boundary, and the view the map opens on. Manage them
-at `/puutarhat`.
+Added after the first pass:
+
+- **Gardens.** A garden is the plot a planting stands in — it owns the name, the
+  boundary, and the view the map opens on. Manage them at `/puutarhat`.
+- **Placements.** A tree's position is a history, not a coordinate, so
+  transplanting can be recorded. `reason` separates a move (the tree is
+  somewhere else) from a correction (the record was wrong); only the first is
+  history. `lat`/`lon` survive as a trigger-maintained cache of the newest row.
+- **Field drafts.** `/istutus/pika` captures a planting from a GPS fix alone and
+  marks it incomplete; the registry hands the unfinished ones back as a
+  worklist.
+- **Diary.** An observation may target a tree, a batch, a spot on the ground, or
+  the plot as a whole. `/paivakirja` shows all four in one timeline.
+- **Map features.** Hand-drawn paths, walls, lawns and fences at
+  `/kartta/kohteet`, traceable on the imagery or by walking them with the phone.
+- **Installable.** A service worker makes the app installable on a phone's home
+  screen; `/asenna` explains how per platform. The cache covers the shell, not
+  the data.
 
 Designed-for-but-not-built, per spec §7: the historical timeline. Every status
 change on a planting or a specimen is stamped by a trigger rather than
@@ -120,8 +137,9 @@ scripts/
   make-keys.mjs        Generates self-hosting secrets locally; --check verifies an existing .env
 ```
 
-Routes are Finnish: `/` (field mode), `/kartta`, `/rekisteri`, `/puutarhat`,
-`/istutus/[id]`, `/puu/[id]`, `/havainto/uusi`, `/raportit`, `/julkinen`.
+Routes are Finnish: `/` (field mode), `/kartta`, `/kartta/kohteet`,
+`/rekisteri`, `/paivakirja`, `/puutarhat`, `/istutus/[id]`, `/istutus/pika`,
+`/puu/[id]`, `/havainto/uusi`, `/raportit`, `/julkinen`, `/asenna`.
 
 ### Gardens
 
