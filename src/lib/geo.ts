@@ -220,6 +220,22 @@ export function ringPerimeterMeters(ring: Ring): number {
 }
 
 /**
+ * Length of an open chain in metres — a path, a wall, a fence line. Distinct
+ * from `ringPerimeterMeters`, which closes the last point back to the first;
+ * doing that to a stone wall would add a phantom segment across the garden.
+ */
+export function lineLengthMeters(line: Ring): number {
+	if (line.length < 2) return 0;
+	let total = 0;
+	for (let i = 1; i < line.length; i++) {
+		const [lon1, lat1] = line[i - 1];
+		const [lon2, lat2] = line[i];
+		total += distanceMeters(lat1, lon1, lat2, lon2);
+	}
+	return total;
+}
+
+/**
  * Area centroid of a ring, which is where the map should open. A plain average
  * of the vertices would drift towards whichever edge the owner clicked most
  * while drawing.

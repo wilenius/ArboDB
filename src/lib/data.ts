@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { distanceMeters } from './geo';
 import type {
+	MapFeature,
 	MapLayer,
 	Observation,
 	Photo,
@@ -201,6 +202,15 @@ export async function fetchPhotos(): Promise<Photo[]> {
 		.order('created_at', { ascending: false });
 	if (error) throw error;
 	return data as Photo[];
+}
+
+/** Hand-drawn paths, walls, lawns and fences for one plot. */
+export async function fetchFeatures(gardenId?: string | null): Promise<MapFeature[]> {
+	let q = supabase.from('features').select('*');
+	if (gardenId) q = q.eq('garden_id', gardenId);
+	const { data, error } = await q.order('sort_order').order('created_at');
+	if (error) throw error;
+	return data as MapFeature[];
 }
 
 export async function fetchMapLayers(): Promise<MapLayer[]> {

@@ -356,6 +356,48 @@ export const fi = {
 		visible: 'Näkyvissä',
 		imported: 'Taso tuotu'
 	},
+	feature: {
+		one: 'Kartan kohde',
+		many: 'Kartan kohteet',
+		title: 'Polut, aidat ja alueet',
+		lead: 'Piirrä ilmakuvan päälle se, mitä siitä ei näy: polut, kiviaidat, nurmikkoalueet, riista-aidat ja ojat.',
+		new: 'Uusi kohde',
+		name: 'Nimi',
+		namePlaceholder: 'esim. Pohjoinen polku',
+		kind: 'Laji',
+		notes: 'Muistiinpanot',
+		shape: 'Muoto',
+		shapes: { line: 'Viiva', polygon: 'Alue' },
+		kinds: {
+			path: 'Polku',
+			wall: 'Kiviaita',
+			fence: 'Riista-aita',
+			ditch: 'Oja',
+			lawn: 'Nurmikko',
+			bed: 'Istutusalue',
+			building: 'Rakennus',
+			other: 'Muu'
+		},
+		draw: 'Piirrä kartalle',
+		drawHelp:
+			'Napauta karttaa lisätäksesi pisteen. Vedä pistettä siirtääksesi sitä. Viiva tarvitsee kaksi pistettä, alue kolme.',
+		walkHelp:
+			'Voit myös kulkea kohteen läpi puhelimen kanssa ja napauttaa "Lisää piste tästä" jokaisella kulmalla. Latvuston alla tämä on tarkempi kuin ilmakuvasta jäljittäminen.',
+		addPointHere: 'Lisää piste tästä',
+		points: (n: number) => `${n} ${n === 1 ? 'piste' : 'pistettä'}`,
+		undo: 'Kumoa piste',
+		clear: 'Tyhjennä',
+		length: 'Pituus',
+		area: 'Pinta-ala',
+		visible: 'Näkyvissä',
+		hide: 'Piilota',
+		show: 'Näytä',
+		none: 'Kartalle ei ole vielä piirretty kohteita.',
+		needsPoints: 'Viiva tarvitsee vähintään kaksi pistettä, alue kolme.',
+		saved: 'Kohde tallennettu',
+		meters: (m: number) => `${Math.round(m)} m`,
+		squareMeters: (m2: number) => `${Math.round(m2)} m²`
+	},
 	property: {
 		title: 'Hae kiinteistörekisteristä',
 		help: 'Anna kiinteistötunnus, esimerkiksi 710-547-1-180. Palstan raja haetaan Maanmittauslaitoksen kiinteistörekisterikartasta.',

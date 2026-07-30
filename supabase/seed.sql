@@ -282,12 +282,26 @@ insert into observation_tags (observation_id, tag_id) values
   ('e0000000-0000-4000-8000-000000000021', 'd0000000-0000-4000-8000-000000000009')
 on conflict do nothing;
 
--- ----------------------------------------------------------- map layers ----
--- The plot outline belongs to the garden now, so this shows the other use for
--- imported layers: extra material drawn over the plot. Here, the paths.
+-- ------------------------------------------------------- map features ----
+-- What the aerial photograph cannot show: the paths under the canopy, the
+-- stone wall, the game fence, the mown ground. All invented, like the
+-- plantings, but drawn where they would plausibly run on the real plot.
 
-insert into map_layers (id, name, kind, geojson, opacity, visible, sort_order) values
-  ('f0000000-0000-4000-8000-000000000001', 'Polut', 'geojson',
-   '{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Pääpolku"},"geometry":{"type":"LineString","coordinates":[[23.019665,60.093332],[23.021241,60.093380],[23.022816,60.093428]]}}]}'::jsonb,
-   1.0, true, 0)
+insert into features (id, garden_id, name, kind, geometry, notes, sort_order) values
+  ('f1000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001',
+   'Pääpolku', 'path',
+   '{"type":"LineString","coordinates":[[23.019665,60.093332],[23.021241,60.093380],[23.022816,60.093428]]}'::jsonb,
+   'Kuljettu polku lehtikuusirivin ja tammien välissä.', 0),
+  ('f1000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001',
+   'Vanha kiviaita', 'wall',
+   '{"type":"LineString","coordinates":[[23.019420,60.093690],[23.020560,60.093720],[23.021900,60.093700]]}'::jsonb,
+   'Peltojen vanha raja, osin sortunut itäpäästä.', 1),
+  ('f1000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000001',
+   'Riista-aita', 'fence',
+   '{"type":"LineString","coordinates":[[23.019300,60.093020],[23.021500,60.093050],[23.023100,60.093180]]}'::jsonb,
+   'Hirviaita eteläreunalla.', 2),
+  ('f1000000-0000-4000-8000-000000000004', '90000000-0000-4000-8000-000000000001',
+   'Nurmikko', 'lawn',
+   '{"type":"Polygon","coordinates":[[[23.020200,60.093400],[23.021100,60.093410],[23.021150,60.093620],[23.020240,60.093610],[23.020200,60.093400]]]}'::jsonb,
+   'Niitetty alue magnolian ympärillä.', 3)
 on conflict (id) do nothing;

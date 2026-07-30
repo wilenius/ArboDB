@@ -2,7 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import Plate from '$lib/components/Plate.svelte';
 	import MapView from '$lib/components/MapView.svelte';
-	import { buildTargets, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
+	import { buildTargets, fetchFeatures, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
 	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
 	import { install } from '$lib/install.svelte';
@@ -10,10 +10,11 @@
 	import { formatDistance } from '$lib/format';
 	import { t } from '$lib/i18n';
 	import { session } from '$lib/supabase';
-	import type { MapLayer, Planting, Target } from '$lib/types';
+	import type { MapFeature, MapLayer, Planting, Target } from '$lib/types';
 
 	let plantings = $state<Planting[]>([]);
 	let layers = $state<MapLayer[]>([]);
+	let features = $state<MapFeature[]>([]);
 	let loading = $state(true);
 	let loadError = $state('');
 	let showAll = $state(false);
@@ -34,9 +35,10 @@
 	async function load() {
 		loading = true;
 		try {
-			[plantings, layers] = await Promise.all([
+			[plantings, layers, features] = await Promise.all([
 				fetchPlantings(gardens.active?.id),
-				fetchMapLayers()
+				fetchMapLayers(),
+				fetchFeatures(gardens.active?.id)
 			]);
 			loadError = '';
 		} catch {
@@ -138,6 +140,7 @@
 		<MapView
 			targets={allTargets}
 			{layers}
+			{features}
 			{here}
 			garden={gardens.active}
 			selectedKey={nearest ? targetKey(nearest) : null}

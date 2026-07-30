@@ -143,6 +143,46 @@ export interface Photo {
 	caption: string | null;
 }
 
+export type FeatureKind =
+	| 'path'
+	| 'wall'
+	| 'fence'
+	| 'ditch'
+	| 'lawn'
+	| 'bed'
+	| 'building'
+	| 'other';
+
+/**
+ * Something on the plot that is not a tree, drawn by hand: a path, a stone
+ * wall, a lawn, a game fence. Distinct from `MapLayer`, which is imported
+ * material replaced wholesale rather than edited a vertex at a time.
+ */
+export interface MapFeature {
+	id: string;
+	garden_id: string;
+	name: string | null;
+	kind: FeatureKind;
+	geometry:
+		| { type: 'LineString'; coordinates: [number, number][] }
+		| { type: 'Polygon'; coordinates: [number, number][][] };
+	notes: string | null;
+	visible: boolean;
+	sort_order: number;
+}
+
+/** Which of the two a kind is normally drawn as. */
+export const FEATURE_SHAPES: Record<FeatureKind, 'line' | 'polygon'> = {
+	path: 'line',
+	wall: 'line',
+	fence: 'line',
+	ditch: 'line',
+	lawn: 'polygon',
+	bed: 'polygon',
+	building: 'polygon',
+	other: 'line'
+};
+
 export interface MapLayer {
 	id: string;
 	name: string;

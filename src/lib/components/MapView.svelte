@@ -10,18 +10,22 @@
 	import { availableBasemaps, buildStyle, DEFAULT_BASEMAP, hasMml, type BasemapId } from '$lib/basemaps';
 	import { publicUrl } from '$lib/supabase';
 	import { scientificName } from '$lib/format';
+	import { colorByKind, DASHED_KINDS, widthByKind } from '$lib/features';
 	import { ringToPolygon, type Ring } from '$lib/geo';
 	import { t } from '$lib/i18n';
-	import type { Garden, MapLayer, Target } from '$lib/types';
+	import type { Garden, MapFeature, MapLayer, Target } from '$lib/types';
 
 	let {
 		targets = [],
 		layers = [],
+		features = [],
 		editable = false,
 		here = null,
 		selectedKey = null,
 		garden = null,
 		drawing = false,
+		drawShape = 'polygon',
+		drawInto = 'boundary',
 		ring = [],
 		onmove,
 		onselect,
@@ -30,13 +34,19 @@
 	}: {
 		targets?: Target[];
 		layers?: MapLayer[];
+		/** Hand-drawn paths, walls, lawns and fences. */
+		features?: MapFeature[];
 		editable?: boolean;
 		here?: { lat: number; lon: number; accuracy?: number } | null;
 		selectedKey?: string | null;
 		/** Opens the map here and outlines the plot. */
 		garden?: Garden | null;
-		/** Boundary drawing: tap to drop a corner, drag a corner to adjust. */
+		/** Drawing: tap to drop a vertex, drag a vertex to adjust. */
 		drawing?: boolean;
+		/** A wall is a chain, a lawn is a ring; only the ring closes. */
+		drawShape?: 'polygon' | 'line';
+		/** Whether the ring being edited replaces the plot outline or is a feature. */
+		drawInto?: 'boundary' | 'feature';
 		ring?: Ring;
 		onmove?: (target: Target, lat: number, lon: number) => void;
 		onselect?: (target: Target) => void;
@@ -91,6 +101,7 @@
 	function repaint() {
 		if (!map || !ready) return;
 		paintLayers();
+		paintFeatures();
 		paintBoundary();
 		syncMarkers();
 	}
@@ -167,6 +178,135 @@
 		paintAreas();
 	}
 
+	// --- drawn features ------------------------------------------------------
+
+	/**
+	 * Paths, walls, lawns, fences. One source for all of them, with the colour
+	 * chosen by `kind` through a match expression — but two line layers, because
+	 * `line-dasharray` is the one property MapLibre will not vary per feature.
+	 */
+	function paintFeatures() {
+		if (!map || !map.getStyle()) return;
+
+		const data = {
+			type: 'FeatureCollection' as const,
+			features: features
+				.filter((f) => f.visible && f.geometry)
+				.map((f) => ({
+					type: 'Feature' as const,
+					properties: { kind: f.kind, name: f.name ?? '' },
+					geometry: f.geometry
+				}))
+		};
+
+		const existing = map.getSource('features') as maplibregl.GeoJSONSource | undefined;
+		if (existing) {
+			existing.setData(data as never);
+			return;
+		}
+
+		map.addSource('features', { type: 'geojson', data: data as never });
+
+		map.addLayer({
+			id: 'features-fill',
+			type: 'fill',
+			source: 'features',
+			filter: ['==', ['geometry-type'], 'Polygon'],
+			paint: { 'fill-color': colorByKind() as never, 'fill-opacity': 0.22 }
+		});
+
+		map.addLayer({
+			id: 'features-line-solid',
+			type: 'line',
+			source: 'features',
+			filter: ['!', ['in', ['get', 'kind'], ['literal', DASHED_KINDS]]],
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			paint: {
+				'line-color': colorByKind() as never,
+				'line-width': widthByKind() as never
+			}
+		});
+
+		map.addLayer({
+			id: 'features-line-dashed',
+			type: 'line',
+			source: 'features',
+			filter: ['in', ['get', 'kind'], ['literal', DASHED_KINDS]],
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			paint: {
+				'line-color': colorByKind() as never,
+				'line-width': widthByKind() as never,
+				'line-dasharray': [2, 1.5]
+			}
+		});
+
+		// Names ride along the line itself, the way a path is labelled on a
+		// walking map. Glyphs come from a CDN, so a failure here costs the
+		// labels and nothing else.
+		map.addLayer({
+			id: 'features-label',
+			type: 'symbol',
+			source: 'features',
+			filter: ['!=', ['get', 'name'], ''],
+			layout: {
+				'text-field': ['get', 'name'],
+				'text-font': ['Noto Sans Regular'],
+				'text-size': 11,
+				'symbol-placement': 'line-center',
+				'text-max-angle': 40
+			},
+			paint: {
+				'text-color': '#f2f4ee',
+				'text-halo-color': '#16241c',
+				'text-halo-width': 1.4
+			}
+		});
+	}
+
+	/**
+	 * The feature being drawn right now. Separate from the boundary preview so a
+	 * wall can be traced without the plot outline flickering out from under it.
+	 */
+	function paintDraft() {
+		if (!map || !map.getStyle()) return;
+
+		const live =
+			drawInto === 'feature' && ring.length >= 2
+				? {
+						type: 'Feature' as const,
+						properties: {},
+						geometry:
+							drawShape === 'polygon' && ring.length >= 3
+								? (ringToPolygon(ring) as never)
+								: ({ type: 'LineString', coordinates: ring } as never)
+					}
+				: null;
+
+		const data = live ?? { type: 'FeatureCollection' as const, features: [] };
+
+		const existing = map.getSource('feature-draft') as maplibregl.GeoJSONSource | undefined;
+		if (existing) {
+			existing.setData(data as never);
+			return;
+		}
+
+		map.addSource('feature-draft', { type: 'geojson', data: data as never });
+		map.addLayer({
+			id: 'feature-draft-fill',
+			type: 'fill',
+			source: 'feature-draft',
+			filter: ['==', ['geometry-type'], 'Polygon'],
+			paint: { 'fill-color': '#f2f4ee', 'fill-opacity': 0.15 }
+		});
+		map.addLayer({
+			id: 'feature-draft-line',
+			type: 'line',
+			source: 'feature-draft',
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			paint: { 'line-color': '#f2f4ee', 'line-width': 2.5 }
+		});
+	}
+
 	// --- garden boundary ---------------------------------------------------
 
 	/**
@@ -176,7 +316,8 @@
 	function paintBoundary() {
 		if (!map || !map.getStyle()) return;
 
-		const live = drawing || ring.length ? ringToPolygon(ring) : null;
+		const live =
+			drawInto === 'boundary' && (drawing || ring.length) ? ringToPolygon(ring) : null;
 		const geometry = live ?? garden?.boundary ?? null;
 
 		const data = geometry
@@ -209,7 +350,7 @@
 		// While drawing, an open chain of two points has no polygon to fill, so
 		// draw the chain itself or the first segment vanishes.
 		const chain =
-			drawing && ring.length >= 2
+			drawInto === 'boundary' && drawing && ring.length >= 2
 				? {
 						type: 'Feature' as const,
 						properties: {},
@@ -230,6 +371,7 @@
 			});
 		}
 
+		paintDraft();
 		syncVertices();
 	}
 
@@ -356,6 +498,9 @@
 		void drawing;
 		void garden;
 		void layers;
+		void features;
+		void drawShape;
+		void drawInto;
 		if (ready) repaint();
 	});
 

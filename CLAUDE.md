@@ -66,6 +66,12 @@ Plantings with no trees are positioned by their own centroid. Status changes are
 stamped by a trigger rather than overwriting, so history accumulates for the
 timeline in spec §7.
 
+`map_layers` and `features` are not the same thing and should not be merged.
+The first is imported material — a survey file, an orthophoto, the property
+register's outline — opaque, complete on arrival, replaced wholesale. The
+second is hand-drawn plot furniture: a row each, named, restyled, edited a
+vertex at a time.
+
 An observation need not be about a planting. `garden_id` is required and
 `planting_id` is not, so a diary entry can be about a spot on the ground
 (`lat`/`lon`/`radius_m`) or about the plot as a whole. A trigger fills
@@ -84,6 +90,7 @@ tracked specimens.
 ## Demo data
 
 `supabase/seed.sql` holds a demo garden — the boundary is the real plot, the 17
-plantings and 20 specimens in it are invented, as is the "Polut" map layer.
+plantings and 20 specimens in it are invented, as are the drawn map features
+and the diary entries.
 `npm run db:reset` reloads it. **Never run it against a server holding real
 data**: it also creates accounts whose passwords are published in this repo.

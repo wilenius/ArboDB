@@ -2,15 +2,16 @@
 	import { onDestroy, onMount } from 'svelte';
 	import MapView from '$lib/components/MapView.svelte';
 	import Plate from '$lib/components/Plate.svelte';
-	import { buildTargets, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
+	import { buildTargets, fetchFeatures, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
 	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
 	import { supabase, session } from '$lib/supabase';
 	import { t } from '$lib/i18n';
-	import type { MapLayer, Planting, Target } from '$lib/types';
+	import type { MapFeature, MapLayer, Planting, Target } from '$lib/types';
 
 	let plantings = $state<Planting[]>([]);
 	let layers = $state<MapLayer[]>([]);
+	let features = $state<MapFeature[]>([]);
 	let editable = $state(false);
 	let selected = $state<Target | null>(null);
 	let toast = $state('');
@@ -27,9 +28,10 @@
 
 	async function load() {
 		try {
-			[plantings, layers] = await Promise.all([
+			[plantings, layers, features] = await Promise.all([
 				fetchPlantings(gardens.active?.id),
-				fetchMapLayers()
+				fetchMapLayers(),
+				fetchFeatures(gardens.active?.id)
 			]);
 			loadError = '';
 		} catch {
@@ -76,6 +78,7 @@
 		<MapView
 			{targets}
 			{layers}
+			{features}
 			{here}
 			{editable}
 			garden={gardens.active}
@@ -103,6 +106,7 @@
 			>
 				{editable ? t.map.doneEditing : t.map.editPositions}
 			</button>
+			<a class="btn btn-sm" href="/kartta/kohteet">{t.feature.many}</a>
 			<a class="btn btn-sm" href="/kartta/tasot">{t.map.layers}</a>
 			<a class="btn btn-sm" href="/puutarhat">{t.garden.boundary}</a>
 		</div>
