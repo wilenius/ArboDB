@@ -89,6 +89,8 @@ export const fi = {
 		notes: 'Muistiinpanot',
 		position: 'Sijainti',
 		radius: 'Säde (m)',
+		captureGps: 'Ota sijainti GPS:llä',
+		capturing: 'Paikannetaan…',
 		published: 'Julkaistu',
 		publishedHelp: 'Julkaistut istutukset näkyvät julkisessa raportissa ilman kirjautumista.',
 		new: 'Uusi istutus',

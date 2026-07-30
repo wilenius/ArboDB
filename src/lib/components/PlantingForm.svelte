@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { scientificName } from '$lib/format';
 	import { gardens } from '$lib/gardens.svelte';
+	import { geo } from '$lib/geolocation.svelte';
 	import { t } from '$lib/i18n';
 	import type { Planting, Taxon } from '$lib/types';
 
@@ -39,6 +40,30 @@
 		published: planting.published ?? false,
 		notes: planting.notes ?? ''
 	})));
+
+	let capturing = $state(false);
+	let gpsError = $state<string | null>(null);
+	// Kept only until the form is submitted: plantings store no accuracy column,
+	// but seeing the fix quality is what tells you whether to stand still and
+	// take it again.
+	let gpsAccuracy = $state<number | null>(null);
+
+	/** Fill the centroid from where the owner is standing. */
+	async function capturePosition() {
+		capturing = true;
+		gpsError = null;
+		try {
+			const fix = await geo.once();
+			form.lat = fix.lat.toFixed(6);
+			form.lon = fix.lon.toFixed(6);
+			gpsAccuracy = fix.accuracy;
+		} catch {
+			gpsError = t.nearby.locationDenied;
+			gpsAccuracy = null;
+		} finally {
+			capturing = false;
+		}
+	}
 
 	const num = (v: unknown) => (v === '' || v == null ? null : Number(v));
 	const str = (v: unknown) => (v === '' || v == null ? null : String(v));
@@ -171,6 +196,15 @@
 				<input id="radius" type="number" min="0" bind:value={form.radius_m} />
 			</div>
 		</div>
+		<div class="gps">
+			<button class="btn btn-sm" type="button" onclick={capturePosition} disabled={capturing}>
+				{capturing ? t.planting.capturing : t.planting.captureGps}
+			</button>
+			{#if gpsAccuracy != null}
+				<span class="help data">{t.nearby.accuracy} ±{Math.round(gpsAccuracy)} m</span>
+			{/if}
+		</div>
+		{#if gpsError}<p class="help">{gpsError}</p>{/if}
 	</fieldset>
 
 	<div class="field">
@@ -212,6 +246,18 @@
 
 	.group .help {
 		margin: 0 0 0.6rem;
+	}
+
+	.gps {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+		margin: 0 0 0.85rem;
+	}
+
+	.gps .help {
+		margin: 0;
 	}
 
 	.check {
