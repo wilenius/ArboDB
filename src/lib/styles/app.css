@@ -448,6 +448,38 @@ input[type='checkbox'] {
 	accent-color: var(--moss);
 }
 
+/*
+ * A checkbox whose label is a sentence, with the explanation of what it does
+ * underneath in <em>. Lives here rather than in a component because `label` is
+ * otherwise styled as a small-caps field label, and any form that reaches for
+ * this pattern without the rules gets shouty italics.
+ */
+.check {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.55rem;
+	margin: 0.5rem 0 1rem;
+	text-transform: none;
+	letter-spacing: 0;
+	font-weight: 500;
+	color: var(--ink);
+	font-size: 0.9375rem;
+}
+
+.check input {
+	margin-top: 0.15rem;
+	flex: none;
+}
+
+.check em {
+	display: block;
+	font-style: normal;
+	font-weight: 400;
+	font-size: 0.8125rem;
+	color: var(--bark);
+	margin-top: 0.1rem;
+}
+
 .field {
 	margin-bottom: 0.85rem;
 }

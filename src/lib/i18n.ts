@@ -88,6 +88,26 @@ export const fi = {
 		offlineNote:
 			'Asennettu sovellus käynnistyy ilman verkkoyhteyttä, mutta puiden tiedot haetaan silti palvelimelta. Metsässä ilman kenttää sovellus siis avautuu, mutta luettelo jää tyhjäksi.'
 	},
+	quick: {
+		title: 'Pikakirjaus',
+		lead: 'Kirjaa taimi paikan päällä. Vain sijainti tarvitaan nyt — laji, määrät ja muut tiedot voi täydentää koneella myöhemmin.',
+		waiting: 'Odotetaan tarkkaa sijaintia…',
+		positionFrom: 'Sijainti puhelimen GPS:stä',
+		retake: 'Ota sijainti uudelleen',
+		taxonOptional: 'Laji (voi jättää tyhjäksi)',
+		taxonSearch: 'Etsi lajia',
+		noTaxon: '— täydennetään myöhemmin —',
+		noteLabel: 'Muistiinpano',
+		notePlaceholder: 'Sanele tai kirjoita: mistä taimi on, mihin se tuli…',
+		photo: 'Kuva',
+		provisionalHere: 'Väliaikainen kasvatuspaikka',
+		save: 'Tallenna tietue',
+		saving: 'Tallennetaan…',
+		saved: (code: string) => `Tietue ${code} tallennettu ja merkitty keskeneräiseksi.`,
+		another: 'Kirjaa seuraava',
+		openRecord: 'Avaa tietue',
+		needsFix: 'Sijaintia ei saatu, joten tietuetta ei voi kirjata tässä. Kokeile uudelleen aukealla paikalla.'
+	},
 	nearby: {
 		title: 'Olen puun vieressä',
 		locating: 'Haetaan sijaintia…',
@@ -97,7 +117,8 @@ export const fi = {
 		noPositions: 'Yhdelläkään puulla ei ole vielä sijaintia.',
 		retry: 'Hae sijainti uudelleen',
 		showAll: 'Näytä kaikki',
-		showNear: 'Näytä lähimmät'
+		showNear: 'Näytä lähimmät',
+		quickAdd: 'Pikakirjaus'
 	},
 	taxon: {
 		one: 'Taksoni',
@@ -137,6 +158,13 @@ export const fi = {
 		published: 'Julkaistu',
 		publishedHelp: 'Julkaistut istutukset näkyvät julkisessa raportissa ilman kirjautumista.',
 		new: 'Uusi istutus',
+		unidentified: 'Määrittämätön',
+		incomplete: 'Keskeneräinen',
+		incompleteBanner:
+			'Tämä tietue on kirjattu maastossa ja jätetty kesken. Täydennä puuttuvat tiedot ja merkitse valmiiksi.',
+		markComplete: 'Merkitse valmiiksi',
+		drafts: 'Täydennettävät',
+		draftsHelp: 'Maastossa aloitetut tietueet, joita ei ole vielä viimeistelty.',
 		trees: 'Yksilöt',
 		addTree: 'Lisää yksilö',
 		noTrees: 'Ei erikseen kirjattuja yksilöitä. Havainnot kohdistuvat koko erään.',

@@ -152,6 +152,7 @@
 			aria-label={t.common.search}
 		/>
 		<a class="btn btn-primary" href="/havainto/uusi">{t.observation.new}</a>
+		<a class="btn" href="/istutus/pika">{t.nearby.quickAdd}</a>
 	</div>
 
 	{#if loading}
@@ -292,6 +293,7 @@
 
 	.search-row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 	}

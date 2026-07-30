@@ -15,6 +15,7 @@
 	let status = $state<PlantingStatus | 'all'>('all');
 	let origin = $state<'all' | 'planted' | 'original'>('all');
 	let awaitingOnly = $state(false);
+	let draftsOnly = $state(false);
 	let provisional = $state(new Set<string>());
 
 	$effect(() => {
@@ -41,8 +42,12 @@
 		plantings.filter((p) => p.status === 'active' && provisional.has(p.id))
 	);
 
+	/** Started in the field, waiting for a keyboard. */
+	const drafts = $derived(plantings.filter((p) => p.incomplete));
+
 	const filtered = $derived(
 		plantings.filter((p) => {
+			if (draftsOnly && !p.incomplete) return false;
 			if (awaitingOnly && !(p.status === 'active' && provisional.has(p.id))) return false;
 			if (status !== 'all' && p.status !== status) return false;
 			if (origin !== 'all' && p.origin_type !== origin) return false;
@@ -123,16 +128,31 @@
 
 	<!-- Surfaced only when there is something waiting: a chip that is always
 	     there and always says nought is furniture, not a worklist. -->
-	{#if awaiting.length}
-		<button
-			class="awaiting no-print"
-			type="button"
-			aria-pressed={awaitingOnly}
-			onclick={() => (awaitingOnly = !awaitingOnly)}
-		>
-			<span>{t.placement.awaiting}</span>
-			<span class="data count">{awaiting.length}</span>
-		</button>
+	{#if drafts.length || awaiting.length}
+		<div class="worklists no-print">
+			{#if drafts.length}
+				<button
+					class="worklist"
+					type="button"
+					aria-pressed={draftsOnly}
+					onclick={() => (draftsOnly = !draftsOnly)}
+				>
+					<span>{t.planting.drafts}</span>
+					<span class="data count">{drafts.length}</span>
+				</button>
+			{/if}
+			{#if awaiting.length}
+				<button
+					class="worklist"
+					type="button"
+					aria-pressed={awaitingOnly}
+					onclick={() => (awaitingOnly = !awaitingOnly)}
+				>
+					<span>{t.placement.awaiting}</span>
+					<span class="data count">{awaiting.length}</span>
+				</button>
+			{/if}
+		</div>
 	{/if}
 
 	<p class="tally data muted">
@@ -212,11 +232,17 @@
 		margin-bottom: 0.2rem;
 	}
 
-	.awaiting {
+	.worklists {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin: 0 0 0.6rem;
+	}
+
+	.worklist {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin: 0 0 0.6rem;
 		padding: 0.35rem 0.7rem;
 		border: 1px solid var(--hairline-strong);
 		border-radius: var(--radius);
@@ -227,13 +253,13 @@
 		cursor: pointer;
 	}
 
-	.awaiting[aria-pressed='true'] {
+	.worklist[aria-pressed='true'] {
 		border-color: var(--moss);
 		background: var(--moss-pale);
 		color: var(--ink);
 	}
 
-	.awaiting .count {
+	.worklist .count {
 		font-size: 0.75rem;
 		color: var(--bark);
 	}

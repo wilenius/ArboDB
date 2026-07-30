@@ -41,6 +41,13 @@
 		notes: planting.notes ?? ''
 	})));
 
+	/**
+	 * A record started in the field may legitimately not know its species yet,
+	 * and finishing the rest of it should not be held hostage to that. A record
+	 * being entered from scratch at a desk has no such excuse.
+	 */
+	const taxonOptional = $derived(Boolean(planting.incomplete));
+
 	let capturing = $state(false);
 	let gpsError = $state<string | null>(null);
 	// Kept only until the form is submitted: plantings store no accuracy column,
@@ -72,7 +79,7 @@
 		e.preventDefault();
 		onsubmit({
 			garden_id: (form.garden_id as string) || null,
-			taxon_id: form.taxon_id as string,
+			taxon_id: str(form.taxon_id),
 			planted_year: num(form.planted_year),
 			planted_month: num(form.planted_month),
 			count_planted: Number(form.count_planted) || 1,
@@ -104,8 +111,10 @@
 
 	<div class="field">
 		<label for="taxon">{t.taxon.one}</label>
-		<select id="taxon" bind:value={form.taxon_id} required>
-			<option value="" disabled>— {t.taxon.one} —</option>
+		<select id="taxon" bind:value={form.taxon_id} required={!taxonOptional}>
+			<option value="" disabled={!taxonOptional}>
+				{taxonOptional ? t.quick.noTaxon : `— ${t.taxon.one} —`}
+			</option>
 			{#each taxa as taxon (taxon.id)}
 				<option value={taxon.id}>
 					{scientificName(taxon)}{taxon.name_fi ? ` — ${taxon.name_fi}` : ''}
@@ -287,32 +296,6 @@
 
 	.gps .help {
 		margin: 0;
-	}
-
-	.check {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.55rem;
-		margin: 0.5rem 0 1rem;
-		text-transform: none;
-		letter-spacing: 0;
-		font-weight: 500;
-		color: var(--ink);
-		font-size: 0.9375rem;
-	}
-
-	.check input {
-		margin-top: 0.15rem;
-		flex: none;
-	}
-
-	.check em {
-		display: block;
-		font-style: normal;
-		font-weight: 400;
-		font-size: 0.8125rem;
-		color: var(--bark);
-		margin-top: 0.1rem;
 	}
 
 	.actions {

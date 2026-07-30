@@ -32,9 +32,15 @@
 <a class="plate" data-status={status} href={link}>
 	<span class="accession">{planting.accession_code ?? '—'}{tree?.label ? ` ${tree.label}` : ''}</span>
 
-	<SciName taxon={planting.taxa} />
-	{#if planting.taxa?.name_fi}
-		<span class="vernacular">{planting.taxa.name_fi}</span>
+	{#if planting.taxa}
+		<SciName taxon={planting.taxa} />
+		{#if planting.taxa.name_fi}
+			<span class="vernacular">{planting.taxa.name_fi}</span>
+		{/if}
+	{:else}
+		<!-- A field record with no species yet. Saying so beats an em dash where
+		     the name goes, which reads as a rendering fault. -->
+		<span class="unidentified">{t.planting.unidentified}</span>
 	{/if}
 
 	{#if !compact}
@@ -48,6 +54,9 @@
 			{#if planting.origin_type === 'original'}
 				<span class="original">{t.enums.originType.original}</span>
 			{/if}
+			{#if planting.incomplete}
+				<span class="original">{t.planting.incomplete}</span>
+			{/if}
 			{#if showDistance && target.distance_m != null}
 				<span class="plate-distance">{formatDistance(target.distance_m)}</span>
 			{/if}
@@ -58,5 +67,11 @@
 <style>
 	.original {
 		color: #d9ac52;
+	}
+
+	.unidentified {
+		font-family: var(--font-display);
+		font-style: italic;
+		color: color-mix(in oklab, currentColor 55%, transparent);
 	}
 </style>

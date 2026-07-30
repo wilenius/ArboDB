@@ -35,8 +35,11 @@ export interface Garden {
 export interface Planting {
 	id: string;
 	garden_id: string | null;
-	taxon_id: string;
+	/** Null while a field record is still waiting to be identified. */
+	taxon_id: string | null;
 	accession_code: string | null;
+	/** Started next to the tree, still to be finished at a keyboard. */
+	incomplete: boolean;
 	planted_year: number | null;
 	planted_month: number | null;
 	count_planted: number;

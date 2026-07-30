@@ -133,6 +133,25 @@
 	{:else}
 		<Plate target={target!} showDistance={false} />
 
+		<!-- A field record says so on its own face until someone finishes it,
+		     rather than only in a list the owner has to think to open. -->
+		{#if planting.incomplete}
+			<div class="draft-banner no-print">
+				<p>{t.planting.incompleteBanner}</p>
+				<div class="draft-actions">
+					<button class="btn btn-sm" type="button" onclick={startEdit}>{t.common.edit}</button>
+					<button
+						class="btn btn-sm btn-primary"
+						type="button"
+						disabled={busy}
+						onclick={() => save({ incomplete: false })}
+					>
+						{t.planting.markComplete}
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		<div class="actions no-print">
 			<a class="btn btn-primary" href="/havainto/uusi?planting={planting.id}">
 				{t.observation.new}
@@ -242,6 +261,34 @@
 		gap: 0.5rem;
 		flex-wrap: wrap;
 		margin: 0.85rem 0 1.25rem;
+	}
+
+	.draft-banner {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-top: 0.85rem;
+		padding: 0.7rem 0.85rem;
+		border: 1px solid var(--hairline);
+		/* Amber rather than moss: unfinished is a state to leave, not a good one
+		   to rest in. The same amber the plate uses for "alkuperäinen". */
+		border-left: 3px solid #d9ac52;
+		border-radius: var(--radius);
+		background: var(--paper-raised);
+	}
+
+	.draft-banner p {
+		margin: 0;
+		flex: 1 1 16rem;
+		font-size: 0.875rem;
+		color: var(--ink-soft);
+	}
+
+	.draft-actions {
+		display: flex;
+		gap: 0.4rem;
 	}
 
 	.sheet {
