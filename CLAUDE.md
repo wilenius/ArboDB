@@ -66,6 +66,14 @@ Plantings with no trees are positioned by their own centroid. Status changes are
 stamped by a trigger rather than overwriting, so history accumulates for the
 timeline in spec §7.
 
+An observation need not be about a planting. `garden_id` is required and
+`planting_id` is not, so a diary entry can be about a spot on the ground
+(`lat`/`lon`/`radius_m`) or about the plot as a whole. A trigger fills
+`garden_id` from the planting when one is given — never pass both. Entries with
+no planting are invisible to anonymous readers, because the public policies
+derive publication from the parent planting; publishing a garden diary would
+need its own flag.
+
 Position is history, in `placements`. The distinction the table exists for:
 `moved` means the tree is somewhere else, `corrected` means the record was
 wrong. Only the first belongs on a timeline, so anything showing movement

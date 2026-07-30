@@ -3,7 +3,13 @@ export type PlantingStatus = 'active' | 'removed' | 'dead';
 export type TreeStatus = 'alive' | 'dead' | 'removed';
 export type PositionSource = 'gps' | 'manual';
 export type PlacementReason = 'acquired' | 'planted' | 'moved' | 'corrected';
-export type ObservationKind = 'growth' | 'care' | 'damage' | 'phenology' | 'other';
+export type ObservationKind =
+	| 'growth'
+	| 'care'
+	| 'damage'
+	| 'phenology'
+	| 'weather'
+	| 'other';
 
 export interface Taxon {
 	id: string;
@@ -106,13 +112,20 @@ export interface Tag {
 
 export interface Observation {
 	id: string;
-	planting_id: string;
+	garden_id: string;
+	/** Null for a diary entry about the plot rather than about a planting. */
+	planting_id: string | null;
 	tree_id: string | null;
 	observed_at: string;
 	kind: ObservationKind;
 	height_cm: number | null;
 	diameter_mm: number | null;
 	body: string | null;
+	/** Where it happened, for entries that are about a place, not a tree. */
+	lat: number | null;
+	lon: number | null;
+	accuracy_m: number | null;
+	radius_m: number | null;
 	observation_tags?: { tag_id: string; tags?: Tag }[];
 	plantings?: Planting;
 	trees?: Tree;

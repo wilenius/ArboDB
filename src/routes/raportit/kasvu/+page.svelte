@@ -20,13 +20,16 @@
 	// One chart per planting: comparing a magnolia's height with a spruce's says
 	// nothing, but comparing specimens inside one batch says a lot.
 	const byPlanting = $derived.by(() => {
+		// A measurement always belongs to a planting; diary entries about the
+		// plot never carry one, so they simply have no group to fall into.
 		const measured = observations.filter(
-			(o) => o.height_cm != null || o.diameter_mm != null
+			(o) => o.planting_id != null && (o.height_cm != null || o.diameter_mm != null)
 		);
 		const map = new Map<string, Observation[]>();
 		for (const o of measured) {
-			if (!map.has(o.planting_id)) map.set(o.planting_id, []);
-			map.get(o.planting_id)!.push(o);
+			const key = o.planting_id!;
+			if (!map.has(key)) map.set(key, []);
+			map.get(key)!.push(o);
 		}
 		return [...map.values()]
 			.filter((group) => group.length > 1)

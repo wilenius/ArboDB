@@ -13,9 +13,20 @@
 	import { t } from '$lib/i18n';
 	import type { ObservationKind, Planting, Tag, Target } from '$lib/types';
 
+	/**
+	 * What an entry can be about. A tree or a batch as before, but also a spot
+	 * on the ground or the plot as a whole — thinning the natural forest, a week
+	 * of rain, a yard project. Those used to have to be pinned to whichever
+	 * seedling happened to be nearest, which quietly corrupted that seedling's
+	 * own history.
+	 */
+	type Mode = 'planting' | 'spot' | 'garden';
+
 	let plantings = $state<Planting[]>([]);
 	let tags = $state<Tag[]>([]);
+	let mode = $state<Mode | null>(null);
 	let target = $state<Target | null>(null);
+	let radiusM = $state('');
 	let query = $state('');
 	let loading = $state(true);
 
@@ -63,7 +74,24 @@
 		if (treeId) target = targets.find((x) => x.tree?.id === treeId) ?? null;
 		else if (plantingId)
 			target = targets.find((x) => x.kind === 'planting' && x.planting.id === plantingId) ?? null;
+		if (target) mode = 'planting';
 	});
+
+	/** The default category follows the target: a spot is worked on, a tree grows. */
+	function chooseMode(next: Mode) {
+		mode = next;
+		if (next !== 'planting') kind = 'care';
+	}
+
+	function restart() {
+		mode = null;
+		target = null;
+		radiusM = '';
+	}
+
+	const ready = $derived(
+		mode === 'planting' ? Boolean(target) : mode === 'spot' ? Boolean(geo.fix) : mode === 'garden'
+	);
 
 	const candidates = $derived(
 		query.trim()
@@ -106,20 +134,28 @@
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
-		if (!target) return;
+		if (!ready) return;
 		busy = true;
 		error = '';
 		try {
+			// A spot entry pins itself where the phone is standing; a whole-garden
+			// entry has no place on purpose. Measurements only travel with a tree.
+			const spot = mode === 'spot' ? geo.fix : null;
 			const { data: obs, error: err } = await supabase
 				.from('observations')
 				.insert({
-					planting_id: target.planting.id,
-					tree_id: target.tree?.id ?? null,
+					garden_id: gardens.active?.id ?? null,
+					planting_id: mode === 'planting' ? target!.planting.id : null,
+					tree_id: mode === 'planting' ? (target!.tree?.id ?? null) : null,
 					observed_at: new Date(observedAt).toISOString(),
 					kind,
-					height_cm: heightCm === '' ? null : Number(heightCm),
-					diameter_mm: diameterMm === '' ? null : Number(diameterMm),
-					body: body.trim() || null
+					height_cm: mode === 'planting' && heightCm !== '' ? Number(heightCm) : null,
+					diameter_mm: mode === 'planting' && diameterMm !== '' ? Number(diameterMm) : null,
+					body: body.trim() || null,
+					lat: spot?.lat ?? null,
+					lon: spot?.lon ?? null,
+					accuracy_m: spot?.accuracy ?? null,
+					radius_m: mode === 'spot' && radiusM !== '' ? Number(radiusM) : null
 				})
 				.select('id')
 				.single();
@@ -138,14 +174,20 @@
 				const uploaded = await uploadPhoto(file, `observations/${obs.id}`);
 				const { error: photoErr } = await supabase.from('photos').insert({
 					observation_id: obs.id,
-					planting_id: target.planting.id,
-					tree_id: target.tree?.id ?? null,
+					planting_id: mode === 'planting' ? target!.planting.id : null,
+					tree_id: mode === 'planting' ? (target!.tree?.id ?? null) : null,
 					...uploaded
 				});
 				if (photoErr) throw photoErr;
 			}
 
-			goto(target.tree ? `/puu/${target.tree.id}` : `/istutus/${target.planting.id}`);
+			goto(
+				mode === 'planting'
+					? target!.tree
+						? `/puu/${target!.tree!.id}`
+						: `/istutus/${target!.planting.id}`
+					: '/paivakirja'
+			);
 		} catch {
 			error = files.length ? t.errors.upload : t.errors.save;
 			busy = false;
@@ -161,8 +203,32 @@
 
 	{#if error}<p class="notice notice-error">{error}</p>{/if}
 
-	{#if !target}
-		<p class="eyebrow">Valitse kohde</p>
+	{#if !mode}
+		<!-- What the entry is about is asked first, because it decides which
+		     fields are even meaningful below. -->
+		<p class="eyebrow">{t.observation.targetChoose}</p>
+		<ul class="modes">
+			<li>
+				<button type="button" class="mode-btn" onclick={() => chooseMode('planting')}>
+					<span class="mode-name">{t.observation.targetTreeOrPlanting}</span>
+					<span class="mode-help">{t.observation.targetTreeOrPlantingHelp}</span>
+				</button>
+			</li>
+			<li>
+				<button type="button" class="mode-btn" onclick={() => chooseMode('spot')}>
+					<span class="mode-name">{t.observation.targetSpotHere}</span>
+					<span class="mode-help">{t.observation.targetSpotHelp}</span>
+				</button>
+			</li>
+			<li>
+				<button type="button" class="mode-btn" onclick={() => chooseMode('garden')}>
+					<span class="mode-name">{t.observation.targetWholeGarden}</span>
+					<span class="mode-help">{t.observation.targetWholeGardenHelp}</span>
+				</button>
+			</li>
+		</ul>
+	{:else if mode === 'planting' && !target}
+		<p class="eyebrow">{t.observation.targetChoose}</p>
 		<input
 			type="search"
 			bind:value={query}
@@ -182,15 +248,37 @@
 				{/each}
 			</ul>
 		{/if}
+		<button class="btn btn-sm" type="button" onclick={restart}>{t.common.back}</button>
 	{:else}
 		<div class="chosen">
-			<Plate {target} href="#" />
-			<button class="btn btn-sm no-print" type="button" onclick={() => (target = null)}>
-				Vaihda kohde
-			</button>
-			<p class="muted small">
-				{target.tree ? t.observation.targetTree : t.observation.targetPlanting}
-			</p>
+			{#if mode === 'planting' && target}
+				<Plate {target} href="#" />
+			{:else}
+				<div class="scope-card">
+					<p class="scope-name">
+						{mode === 'spot' ? t.observation.targetSpotHere : t.observation.targetWholeGarden}
+					</p>
+					{#if mode === 'spot'}
+						{#if geo.fix}
+							<p class="data scope-fix">
+								{geo.fix.lat.toFixed(5)}, {geo.fix.lon.toFixed(5)} · {t.nearby.accuracy} ±{Math.round(
+									geo.fix.accuracy
+								)} m
+							</p>
+						{:else}
+							<p class="scope-fix">{t.observation.targetSpotNoFix}</p>
+						{/if}
+					{:else if gardens.active}
+						<p class="data scope-fix">{gardens.active.name}</p>
+					{/if}
+				</div>
+			{/if}
+			<button class="btn btn-sm no-print" type="button" onclick={restart}>Vaihda kohde</button>
+			{#if mode === 'planting' && target}
+				<p class="muted small">
+					{target.tree ? t.observation.targetTree : t.observation.targetPlanting}
+				</p>
+			{/if}
 		</div>
 
 		<form onsubmit={save}>
@@ -221,15 +309,30 @@
 				></textarea>
 			</div>
 
+			<!-- Height and diameter belong to a specimen. On a diary entry they are
+			     not merely empty, they are meaningless, so they are not offered. -->
 			<div class="field-grid">
-				<div class="field">
-					<label for="height">{t.observation.height}</label>
-					<input id="height" type="number" inputmode="numeric" min="0" bind:value={heightCm} />
-				</div>
-				<div class="field">
-					<label for="diameter">{t.observation.diameter}</label>
-					<input id="diameter" type="number" inputmode="numeric" min="0" bind:value={diameterMm} />
-				</div>
+				{#if mode === 'planting'}
+					<div class="field">
+						<label for="height">{t.observation.height}</label>
+						<input id="height" type="number" inputmode="numeric" min="0" bind:value={heightCm} />
+					</div>
+					<div class="field">
+						<label for="diameter">{t.observation.diameter}</label>
+						<input
+							id="diameter"
+							type="number"
+							inputmode="numeric"
+							min="0"
+							bind:value={diameterMm}
+						/>
+					</div>
+				{:else if mode === 'spot'}
+					<div class="field">
+						<label for="radius">{t.observation.areaRadius}</label>
+						<input id="radius" type="number" inputmode="numeric" min="0" bind:value={radiusM} />
+					</div>
+				{/if}
 				<div class="field">
 					<label for="observed">{t.observation.observedAt}</label>
 					<input id="observed" type="datetime-local" bind:value={observedAt} />
@@ -297,6 +400,63 @@
 <style>
 	.narrow {
 		max-width: 40rem;
+	}
+
+	.modes {
+		list-style: none;
+		margin: 0.75rem 0 0;
+		padding: 0;
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.mode-btn {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.8rem 0.95rem;
+		border: 1px solid var(--hairline);
+		border-left: 3px solid var(--hairline-strong);
+		border-radius: var(--radius);
+		background: var(--paper-raised);
+		cursor: pointer;
+		font-family: var(--font-ui);
+		color: var(--ink);
+	}
+
+	.mode-btn:hover {
+		border-left-color: var(--moss);
+	}
+
+	.mode-name {
+		display: block;
+		font-size: 1rem;
+	}
+
+	.mode-help {
+		display: block;
+		margin-top: 0.15rem;
+		font-size: 0.8125rem;
+		color: var(--bark);
+	}
+
+	.scope-card {
+		padding: 0.8rem 0.95rem;
+		border: 1px solid var(--hairline);
+		border-left: 3px solid var(--moss);
+		border-radius: var(--radius);
+		background: var(--paper-raised);
+	}
+
+	.scope-name {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.scope-fix {
+		margin: 0.15rem 0 0;
+		font-size: 0.8125rem;
+		color: var(--bark);
 	}
 
 	.picker {

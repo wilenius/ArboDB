@@ -2,7 +2,7 @@
 	import TagChip from './TagChip.svelte';
 	import SciName from './SciName.svelte';
 	import { publicUrl } from '$lib/supabase';
-	import { formatDateTime, formatMeasurement } from '$lib/format';
+	import { formatCoord, formatDateTime, formatMeasurement } from '$lib/format';
 	import { t } from '$lib/i18n';
 	import type { Observation } from '$lib/types';
 
@@ -46,17 +46,38 @@
 		{/if}
 	</header>
 
-	{#if showTarget && observation.plantings}
-		<p class="target">
-			<a href={observation.trees ? `/puu/${observation.trees.id}` : `/istutus/${observation.plantings.id}`}>
-				<SciName taxon={observation.plantings.taxa} />
-			</a>
-			<span class="data muted">
-				{observation.plantings.accession_code}{observation.trees?.label
-					? ` ${observation.trees.label}`
-					: ''}
-			</span>
-		</p>
+	{#if showTarget}
+		{#if observation.plantings}
+			<p class="target">
+				<a
+					href={observation.trees
+						? `/puu/${observation.trees.id}`
+						: `/istutus/${observation.plantings.id}`}
+				>
+					<SciName taxon={observation.plantings.taxa} />
+				</a>
+				<span class="data muted">
+					{observation.plantings.accession_code}{observation.trees?.label
+						? ` ${observation.trees.label}`
+						: ''}
+				</span>
+			</p>
+		{:else}
+			<!-- A diary entry: about a spot on the ground, or about the plot as a
+			     whole. Saying which is the only way to tell the two apart. -->
+			<p class="target">
+				<span class="scope">
+					{observation.lat != null ? t.journal.targetSpot : t.journal.targetGarden}
+				</span>
+				{#if observation.lat != null && observation.lon != null}
+					<span class="data muted">
+						{formatCoord(observation.lat, observation.lon)}{observation.radius_m
+							? ` · r ${Math.round(observation.radius_m)} m`
+							: ''}
+					</span>
+				{/if}
+			</p>
+		{/if}
 	{/if}
 
 	{#if observation.body}
@@ -125,6 +146,13 @@
 		text-decoration: none;
 		color: var(--ink);
 		border-bottom: 1px solid var(--hairline-strong);
+	}
+
+	/* Set upright, not in the display italic a scientific name gets: a plot is
+	   not a taxon, and the eye should not have to read it to know that. */
+	.scope {
+		font-size: 0.9375rem;
+		color: var(--ink-soft);
 	}
 
 	.body {

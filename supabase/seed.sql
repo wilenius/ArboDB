@@ -210,6 +210,36 @@ insert into observations (id, planting_id, tree_id, observed_at, kind, height_cm
   ('e0000000-0000-4000-8000-000000000021', 'b0000000-0000-4000-8000-000000000006', 'c0000000-0000-4000-8000-000000000010', '2025-09-03T14:00:00+03', 'growth',     480,  96, null)
 on conflict (id) do nothing;
 
+-- ------------------------------------------------------ diary entries ----
+-- Entries about the plot rather than about any one planting: the half of an
+-- arboretum's year that a per-tree log has nowhere to put. Two are pinned to a
+-- spot on the ground, the rest are about the place as a whole.
+
+insert into observations
+  (id, garden_id, planting_id, tree_id, observed_at, kind, body, lat, lon, radius_m)
+values
+  ('e0000000-0000-4000-8000-000000000031', '90000000-0000-4000-8000-000000000001', null, null,
+   '2024-03-08T11:00:00+02', 'care',
+   'Luonnonmetsää harvennettu pohjoisreunalta: poistettu pienikokoista kuusta noin kolmen aarin alalta, jätetty koivut kasvamaan.',
+   60.09412, 23.01978, 30),
+  ('e0000000-0000-4000-8000-000000000032', '90000000-0000-4000-8000-000000000001', null, null,
+   '2024-07-19T20:30:00+03', 'weather',
+   'Ukkoskuuro, mittarissa 41 mm vuorokaudessa. Alarinteen oja tulvi yli.',
+   null, null, null),
+  ('e0000000-0000-4000-8000-000000000033', '90000000-0000-4000-8000-000000000001', null, null,
+   '2024-08-02T09:15:00+03', 'damage',
+   'Riista-aidan eteläpää painunut hirven törmäyksestä, verkko revennyt noin kahden metrin matkalta.',
+   60.09298, 23.02071, 5),
+  ('e0000000-0000-4000-8000-000000000034', '90000000-0000-4000-8000-000000000001', null, null,
+   '2025-05-24T13:00:00+03', 'care',
+   'Nurmikkoalue laajennettu magnolian ympäriltä pohjoiseen, kivet siirretty kiviaidan jatkeeksi.',
+   null, null, null),
+  ('e0000000-0000-4000-8000-000000000035', '90000000-0000-4000-8000-000000000001', null, null,
+   '2026-02-11T10:00:00+02', 'weather',
+   'Leuto talvi, lunta korkeintaan 15 cm koko kaudella. Routa ei kantanut konetta harvennukselle.',
+   null, null, null)
+on conflict (id) do nothing;
+
 -- --------------------------------------------------------- observation_tags --
 
 insert into observation_tags (observation_id, tag_id) values

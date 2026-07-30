@@ -13,6 +13,7 @@ export const fi = {
 		nearby: 'Lähistöllä',
 		map: 'Kartta',
 		registry: 'Rekisteri',
+		journal: 'Päiväkirja',
 		reports: 'Raportit',
 		more: 'Lisää'
 	},
@@ -231,9 +232,35 @@ export const fi = {
 		addPhoto: 'Lisää kuva',
 		targetTree: 'Kohde: yksilö',
 		targetPlanting: 'Kohde: koko erä',
+		targetChoose: 'Valitse kohde',
+		targetTreeOrPlanting: 'Puu tai erä',
+		targetTreeOrPlantingHelp:
+			'Yksittäinen puu tai istutuserä. Mitatut korkeudet ja läpimitat kirjataan tänne.',
+		targetSpotHere: 'Tämä kohta',
+		targetSpotHelp:
+			'Merkintä kiinnittyy siihen kohtaan, jossa seisot. Sopii metsän harvennukseen, kaatuneeseen puuhun tai muuhun paikkaan sidottuun työhön.',
+		targetWholeGarden: 'Koko puutarha',
+		targetWholeGardenHelp:
+			'Ei sidottu paikkaan: säät ja sateet, pihaprojektit, kausiyhteenvedot.',
+		targetSpotNoFix: 'Sijaintia ei ole vielä saatu.',
+		areaRadius: 'Alueen säde (m)',
 		latest: 'Viimeisimmät havainnot',
 		count: (n: number) => `${n} ${n === 1 ? 'havainto' : 'havaintoa'}`,
 		none: 'Ei havaintoja vielä.'
+	},
+	journal: {
+		title: 'Päiväkirja',
+		lead: 'Havainnot ja toimenpiteet aikajärjestyksessä — yksittäisistä puista koko tontin töihin.',
+		new: 'Uusi merkintä',
+		empty: 'Päiväkirjassa ei ole vielä merkintöjä.',
+		scopeLabel: 'Kohde',
+		scopeAll: 'Kaikki kohteet',
+		scopeGarden: 'Koko puutarha',
+		scopePlanting: 'Puut ja erät',
+		kindAll: 'Kaikki lajit',
+		targetGarden: 'Koko puutarha',
+		targetSpot: 'Kartalla osoitettu kohta',
+		examples: 'Esimerkiksi metsän harvennus, sateet, pihaprojektit ja aitatyöt.'
 	},
 	tag: {
 		one: 'Tunniste',
@@ -421,6 +448,7 @@ export const fi = {
 			care: 'Hoito',
 			damage: 'Vaurio',
 			phenology: 'Fenologia',
+			weather: 'Sää',
 			other: 'Muu'
 		}
 	},

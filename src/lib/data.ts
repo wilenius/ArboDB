@@ -155,12 +155,12 @@ export async function fetchTags(): Promise<Tag[]> {
 	return data as Tag[];
 }
 
-const observationSelect = (innerPlanting: boolean) => `
+const OBSERVATION_SELECT = `
 	*,
 	observation_tags ( tag_id, tags (*) ),
 	photos (*),
 	trees ( id, label, status ),
-	plantings${innerPlanting ? '!inner' : ''} ( id, garden_id, accession_code, count_planted, taxa (*) )
+	plantings ( id, garden_id, accession_code, count_planted, incomplete, taxa (*) )
 `;
 
 export async function fetchObservations(opts: {
@@ -170,15 +170,19 @@ export async function fetchObservations(opts: {
 	from?: string;
 	to?: string;
 	kind?: string;
+	/** 'garden' keeps only diary entries; 'planting' only tree and batch ones. */
+	scope?: 'garden' | 'planting';
 	limit?: number;
 } = {}): Promise<Observation[]> {
-	// Observations hang off plantings, so a garden filter has to reach through
-	// the embedded resource — and it must be an inner join, or PostgREST keeps
-	// every parent row and merely blanks the embedded one.
-	let q = supabase.from('observations').select(observationSelect(Boolean(opts.gardenId)));
-	if (opts.gardenId) q = q.eq('plantings.garden_id', opts.gardenId);
+	// Observations carry their own garden_id since diary entries need not hang
+	// off a planting at all, which also means the filter no longer has to reach
+	// through an embedded resource with `!inner`.
+	let q = supabase.from('observations').select(OBSERVATION_SELECT);
+	if (opts.gardenId) q = q.eq('garden_id', opts.gardenId);
 	if (opts.plantingId) q = q.eq('planting_id', opts.plantingId);
 	if (opts.treeId) q = q.eq('tree_id', opts.treeId);
+	if (opts.scope === 'garden') q = q.is('planting_id', null);
+	if (opts.scope === 'planting') q = q.not('planting_id', 'is', null);
 	if (opts.from) q = q.gte('observed_at', opts.from);
 	if (opts.to) q = q.lte('observed_at', opts.to);
 	if (opts.kind) q = q.eq('kind', opts.kind);
@@ -186,8 +190,6 @@ export async function fetchObservations(opts: {
 	if (opts.limit) q = q.limit(opts.limit);
 	const { data, error } = await q;
 	if (error) throw error;
-	// The select string is built at runtime for the inner join, so supabase-js
-	// cannot infer the row shape here and needs the widening cast.
 	return data as unknown as Observation[];
 }
 

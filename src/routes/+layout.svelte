@@ -61,6 +61,7 @@
 		{ href: '/', label: t.nav.nearby, glyph: '◉' },
 		{ href: '/kartta', label: t.nav.map, glyph: '▤' },
 		{ href: '/rekisteri', label: t.nav.registry, glyph: '☰' },
+		{ href: '/paivakirja', label: t.nav.journal, glyph: '✎' },
 		{ href: '/raportit', label: t.nav.reports, glyph: '❑' }
 	];
 
