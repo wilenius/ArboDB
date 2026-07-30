@@ -47,6 +47,7 @@ export const fi = {
 		no: 'Ei',
 		close: 'Sulje',
 		print: 'Tulosta',
+		moreFields: 'Lisätiedot',
 		confirmDelete: 'Poistetaanko pysyvästi?'
 	},
 	install: {
@@ -123,7 +124,11 @@ export const fi = {
 		propagation: 'Lisäystapa',
 		provenance: 'Alkuperä',
 		originType: 'Tyyppi',
+		originHelp:
+			'Merkitse "alkuperäinen" vain puille, jotka kasvoivat tontilla jo ennen sinua. Oletus "istutettu" käy kaikkeen muuhun, eikä kenttää tarvitse koskea.',
+		allOrigins: 'Kaikki tyypit',
 		status: 'Tila',
+		allStatuses: 'Kaikki tilat',
 		notes: 'Muistiinpanot',
 		position: 'Sijainti',
 		radius: 'Säde (m)',
@@ -292,6 +297,8 @@ export const fi = {
 	importer: {
 		title: 'CSV-tuonti',
 		help: 'Tuo olemassa oleva istutusluettelo. Ensimmäinen rivi on otsikkorivi.',
+		formatHelp:
+			'Tuonti lukee CSV-tiedostoa. Jos luettelosi on Excel-työkirjana, valitse Excelissä Tallenna nimellä → "CSV UTF-8 (luetteloerotin)".',
 		columns: 'Sarakkeet',
 		pickFile: 'Valitse CSV-tiedosto',
 		preview: 'Esikatselu',
@@ -306,9 +313,13 @@ export const fi = {
 	},
 	exporter: {
 		title: 'Vienti',
-		help: 'Vie taulukko CSV- tai XLSX-muodossa. Vienti noudattaa näkymän rajauksia.',
+		help: 'Vienti noudattaa näkymän rajauksia: mukaan tulee se, mitä ruudulla näkyy.',
 		csv: 'Lataa CSV',
 		xlsx: 'Lataa XLSX',
+		csvHelp:
+			'CSV on pelkkä tekstitaulukko. Se avautuu Exceliin, mutta siinä ei ole kaavoja eikä muotoiluja — se on siirtomuoto. Sama muoto luetaan takaisin tuonnissa.',
+		xlsxHelp:
+			'XLSX on tavallinen Excel-työkirja. Valitse tämä, jos haluat vain katsella tai muokata tietoja Excelissä.',
 		what: 'Mitä viedään'
 	},
 	reports: {

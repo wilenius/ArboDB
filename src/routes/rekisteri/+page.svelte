@@ -80,24 +80,36 @@
 
 	{#if error}<p class="notice notice-error">{error}</p>{/if}
 
+	<!-- Each control is labelled with what it narrows, and its neutral option
+	     says so too: "Tila: Kaikki" read as a status a planting could be in
+	     rather than as the absence of a filter. -->
 	<div class="filters no-print">
-		<input
-			type="search"
-			bind:value={query}
-			placeholder="{t.common.search}: laji, tunnus, alkuperä"
-			aria-label={t.common.search}
-		/>
-		<select bind:value={status} aria-label={t.planting.status}>
-			<option value="all">{t.planting.status}: {t.common.all}</option>
-			<option value="active">{t.enums.plantingStatus.active}</option>
-			<option value="dead">{t.enums.plantingStatus.dead}</option>
-			<option value="removed">{t.enums.plantingStatus.removed}</option>
-		</select>
-		<select bind:value={origin} aria-label={t.planting.originType}>
-			<option value="all">{t.planting.originType}: {t.common.all}</option>
-			<option value="planted">{t.enums.originType.planted}</option>
-			<option value="original">{t.enums.originType.original}</option>
-		</select>
+		<div class="filter">
+			<label class="filter-label" for="registry-search">{t.common.search}</label>
+			<input
+				id="registry-search"
+				type="search"
+				bind:value={query}
+				placeholder="laji, tunnus, alkuperä"
+			/>
+		</div>
+		<div class="filter">
+			<label class="filter-label" for="registry-status">{t.planting.status}</label>
+			<select id="registry-status" bind:value={status}>
+				<option value="all">{t.planting.allStatuses}</option>
+				<option value="active">{t.enums.plantingStatus.active}</option>
+				<option value="dead">{t.enums.plantingStatus.dead}</option>
+				<option value="removed">{t.enums.plantingStatus.removed}</option>
+			</select>
+		</div>
+		<div class="filter">
+			<label class="filter-label" for="registry-origin">{t.planting.originType}</label>
+			<select id="registry-origin" bind:value={origin}>
+				<option value="all">{t.planting.allOrigins}</option>
+				<option value="planted">{t.enums.originType.planted}</option>
+				<option value="original">{t.enums.originType.original}</option>
+			</select>
+		</div>
 	</div>
 
 	<p class="tally data muted">
@@ -164,6 +176,17 @@
 		gap: 0.5rem;
 		grid-template-columns: 1fr;
 		margin-bottom: 0.75rem;
+		align-items: end;
+	}
+
+	.filter-label {
+		display: block;
+		font-family: var(--font-data);
+		font-size: 0.625rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--bark);
+		margin-bottom: 0.2rem;
 	}
 
 	.tally {

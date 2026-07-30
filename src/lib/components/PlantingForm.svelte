@@ -161,23 +161,29 @@
 		<input id="provenance" bind:value={form.provenance} placeholder="Taimisto tai siemenen alkuperä" />
 	</div>
 
-	<div class="field-grid">
+	<div class="field">
+		<label for="status">{t.planting.status}</label>
+		<select id="status" bind:value={form.status}>
+			<option value="active">{t.enums.plantingStatus.active}</option>
+			<option value="dead">{t.enums.plantingStatus.dead}</option>
+			<option value="removed">{t.enums.plantingStatus.removed}</option>
+		</select>
+	</div>
+
+	<!-- Origin type is for cataloguing trees that predate the arboretum, which
+	     is a project of its own and one most owners never take on. It stays
+	     available, but out of the path of entering an ordinary planting. -->
+	<details class="more" open={form.origin_type === 'original'}>
+		<summary>{t.common.moreFields}</summary>
 		<div class="field">
 			<label for="origin">{t.planting.originType}</label>
 			<select id="origin" bind:value={form.origin_type}>
 				<option value="planted">{t.enums.originType.planted}</option>
 				<option value="original">{t.enums.originType.original}</option>
 			</select>
+			<p class="help">{t.planting.originHelp}</p>
 		</div>
-		<div class="field">
-			<label for="status">{t.planting.status}</label>
-			<select id="status" bind:value={form.status}>
-				<option value="active">{t.enums.plantingStatus.active}</option>
-				<option value="dead">{t.enums.plantingStatus.dead}</option>
-				<option value="removed">{t.enums.plantingStatus.removed}</option>
-			</select>
-		</div>
-	</div>
+	</details>
 
 	<fieldset class="group">
 		<legend class="field-label">{t.planting.position}</legend>
@@ -242,6 +248,29 @@
 		border-radius: var(--radius);
 		padding: 0.75rem 0.85rem 0.1rem;
 		margin: 0 0 0.85rem;
+	}
+
+	.more {
+		margin: 0 0 0.85rem;
+	}
+
+	.more summary {
+		font-family: var(--font-data);
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--bark);
+		cursor: pointer;
+		padding: 0.35rem 0;
+	}
+
+	.more summary:hover {
+		color: var(--ink);
+	}
+
+	.more[open] {
+		padding: 0 0 0.1rem;
+		border-bottom: 1px solid var(--hairline);
 	}
 
 	.group .help {

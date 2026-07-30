@@ -319,11 +319,21 @@
 				{t.exporter.xlsx}
 			</button>
 		</div>
+		<!-- Both buttons say "Excel" to anyone who has not met the formats, so
+		     the difference has to be spelled out next to them rather than
+		     guessed at from the extension. -->
+		<dl class="formats">
+			<dt>CSV</dt>
+			<dd>{t.exporter.csvHelp}</dd>
+			<dt>XLSX</dt>
+			<dd>{t.exporter.xlsxHelp}</dd>
+		</dl>
 	</section>
 
 	<section class="card block">
 		<h2>{t.importer.title}</h2>
 		<p class="muted small">{t.importer.help}</p>
+		<p class="muted small">{t.importer.formatHelp}</p>
 
 		<div class="row wrap">
 			<input type="file" accept=".csv,text/csv" onchange={onFile} aria-label={t.importer.pickFile} />
@@ -413,6 +423,27 @@
 
 	.small {
 		font-size: 0.8125rem;
+	}
+
+	.formats {
+		margin: 0.9rem 0 0;
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.3rem 0.75rem;
+		font-size: 0.8125rem;
+		align-items: baseline;
+	}
+
+	.formats dt {
+		font-family: var(--font-data);
+		font-size: 0.6875rem;
+		letter-spacing: 0.12em;
+		color: var(--bark);
+	}
+
+	.formats dd {
+		margin: 0;
+		color: var(--ink-soft);
 	}
 
 	.wrap {
