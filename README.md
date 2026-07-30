@@ -109,6 +109,53 @@ Designed-for-but-not-built, per spec §7: the historical timeline. Every status
 change on a planting or a specimen is stamped by a trigger rather than
 overwriting, so the history is already accumulating.
 
+## Not built yet
+
+Known gaps in what is above, recorded so they are not rediscovered as bugs.
+Roughly in the order they are likely to bite.
+
+- **Walking a feature is untested on a real phone.** `/kartta/kohteet` reads
+  `geo.fix` from the running watch, so it should collect a new point per tap as
+  you move, but it has only ever been exercised against a stubbed fix that
+  could not move. The maths underneath is exercised by the demo features.
+  Verify this on the device before trusting a traced wall.
+- **Nothing works offline but the shell.** The service worker caches the app so
+  a weak signal opens it instead of white-screening; every row still comes from
+  Supabase. In real dead ground the app opens to an empty list, and a field
+  record cannot be captured at all. Queueing writes locally and syncing later is
+  the obvious next step and is a substantially larger piece of work than
+  anything in this pass.
+- **Part of a batch cannot be moved.** A placement covers one tracked specimen
+  or a whole planting. Moving three seedlings out of ten means splitting the
+  batch first, which needs a "jaa erä" action and a `split_from_planting_id`
+  link. Until then the honest workaround is to promote the moved seedlings to
+  individually tracked trees.
+- **A tree-level move never changes its planting's garden.** Only a
+  planting-level placement propagates `garden_id`, because a batch whose
+  specimens sit in different plots is not a thing the rest of the app can
+  represent. Moving a specimen across a plot boundary therefore leaves the
+  paperwork behind; adjust the planting by hand.
+- **A garden-level diary entry cannot be published.** The public policies derive
+  publication from the parent planting, so an entry with no planting is
+  invisible to anonymous readers. That is the safe default rather than a
+  decision — publishing the plot's diary needs its own flag on `observations`.
+- **`features_public` is a policy with nothing behind it.** Drawn features are
+  readable by anonymous visitors wherever the garden is, but `/julkinen` renders
+  no map, so nothing reads them. The policy is there so that adding a public map
+  later is a UI change and not a security review.
+- **A move is not drawn on the map.** The trail lives on the specimen's page as
+  a list. A dashed line from the previous position would double as a sanity
+  check on the GPS, and is cheap, but it is not there.
+- **Accession codes never renumber.** Quick capture stamps the current year, so
+  a record of an older tree whose year is corrected afterwards keeps a code from
+  the wrong year. This is deliberate — an accession number is permanent once a
+  stake carries it — but it means the year on a corrected draft should be fixed
+  before the label is written.
+- **XLSX import was declined, not overlooked.** The exporter writes both CSV and
+  XLSX; the importer reads CSV only, and the page says so and explains how to
+  get a CSV out of Excel. Decided against on 30 July 2026 as not worth the
+  round trip.
+
 ---
 
 ## Layout
