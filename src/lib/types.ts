@@ -2,6 +2,7 @@ export type OriginType = 'planted' | 'original';
 export type PlantingStatus = 'active' | 'removed' | 'dead';
 export type TreeStatus = 'alive' | 'dead' | 'removed';
 export type PositionSource = 'gps' | 'manual';
+export type PlacementReason = 'acquired' | 'planted' | 'moved' | 'corrected';
 export type ObservationKind = 'growth' | 'care' | 'damage' | 'phenology' | 'other';
 
 export interface Taxon {
@@ -67,6 +68,32 @@ export interface Tree {
 	notes: string | null;
 	plantings?: Planting;
 }
+
+/**
+ * One position a tree or a batch has held. The newest is the current one; the
+ * rest are history. `corrected` rows are bookkeeping — the record was wrong,
+ * not the tree in a different place — and are kept out of the timeline.
+ */
+export interface Placement {
+	id: string;
+	planting_id: string;
+	tree_id: string | null;
+	garden_id: string | null;
+	lat: number | null;
+	lon: number | null;
+	accuracy_m: number | null;
+	source: PositionSource | null;
+	reason: PlacementReason;
+	/** A pot or a nursery bed: alive and positioned, but not its final spot. */
+	provisional: boolean;
+	occurred_on: string;
+	note: string | null;
+	created_at: string;
+	gardens?: Garden;
+}
+
+/** Only these three mean the tree was somewhere else; the fourth is a fix. */
+export const MOVEMENT_REASONS: PlacementReason[] = ['acquired', 'planted', 'moved'];
 
 export interface Tag {
 	id: string;

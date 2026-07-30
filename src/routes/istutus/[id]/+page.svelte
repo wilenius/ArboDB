@@ -4,6 +4,7 @@
 	import Plate from '$lib/components/Plate.svelte';
 	import PlantingForm from '$lib/components/PlantingForm.svelte';
 	import ObservationCard from '$lib/components/ObservationCard.svelte';
+	import PlacementHistory from '$lib/components/PlacementHistory.svelte';
 	import { fetchObservations, fetchPlanting, fetchTaxa } from '$lib/data';
 	import { supabase, session } from '$lib/supabase';
 	import { formatCoord, formatPlantedDate } from '$lib/format';
@@ -200,6 +201,18 @@
 				</ul>
 			{/if}
 		</section>
+
+		<!-- A batch is positioned by its own centroid only while it has no
+		     individually tracked specimens. Once it does, each of them carries
+		     its own history and a centroid track would be a second, quietly
+		     disagreeing answer to the same question. -->
+		{#if !planting.trees?.length}
+			<PlacementHistory
+				plantingId={planting.id}
+				gardenId={planting.garden_id}
+				onmoved={() => load(id)}
+			/>
+		{/if}
 
 		<section>
 			<div class="spread section-head">

@@ -4,6 +4,7 @@
 	import Plate from '$lib/components/Plate.svelte';
 	import ObservationCard from '$lib/components/ObservationCard.svelte';
 	import GrowthChart from '$lib/components/GrowthChart.svelte';
+	import PlacementHistory from '$lib/components/PlacementHistory.svelte';
 	import { fetchObservations, fetchTree } from '$lib/data';
 	import { supabase, session } from '$lib/supabase';
 	import { formatCoord, formatDate } from '$lib/format';
@@ -194,6 +195,13 @@
 				{saving ? t.common.saving : t.common.save}
 			</button>
 		</div>
+
+		<PlacementHistory
+			plantingId={tree.planting_id}
+			treeId={tree.id}
+			gardenId={tree.plantings?.garden_id ?? null}
+			onmoved={() => load(id)}
+		/>
 
 		{#if hasMeasurements}
 			<GrowthChart {observations} title="Kasvu{tree.label ? ` — ${tree.label}` : ''}" />

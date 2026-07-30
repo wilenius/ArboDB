@@ -4,6 +4,8 @@ import type {
 	MapLayer,
 	Observation,
 	Photo,
+	Placement,
+	PlacementReason,
 	Planting,
 	Tag,
 	Target,
@@ -56,6 +58,95 @@ export async function fetchTree(id: string): Promise<Tree> {
 		.single();
 	if (error) throw error;
 	return data as Tree;
+}
+
+// --- placements ------------------------------------------------------------
+
+/**
+ * Where this tree, or this batch, has stood. Oldest first: a timeline reads
+ * forwards, unlike the observation feed.
+ *
+ * A tree's history is its own rows only. The batch centroid is a separate
+ * track (`tree_id is null`) because a planting with individually tracked
+ * specimens positions itself by them, not by the centroid.
+ */
+export async function fetchPlacements(target: {
+	plantingId: string;
+	treeId?: string | null;
+}): Promise<Placement[]> {
+	let q = supabase
+		.from('placements')
+		.select('*, gardens (id, name)')
+		.eq('planting_id', target.plantingId);
+	q = target.treeId ? q.eq('tree_id', target.treeId) : q.is('tree_id', null);
+	const { data, error } = await q
+		.order('occurred_on', { ascending: true })
+		.order('created_at', { ascending: true });
+	if (error) throw error;
+	return data as unknown as Placement[];
+}
+
+/**
+ * Record a move. The trigger on `placements` pulls the tree's cached position
+ * along with it, so nothing else has to be updated here — and deliberately so:
+ * writing both by hand is how the two drift apart.
+ */
+export async function recordPlacement(values: {
+	planting_id: string;
+	tree_id?: string | null;
+	garden_id?: string | null;
+	lat: number;
+	lon: number;
+	accuracy_m?: number | null;
+	source?: 'gps' | 'manual';
+	reason: PlacementReason;
+	provisional?: boolean;
+	occurred_on: string;
+	note?: string | null;
+}): Promise<void> {
+	const { error } = await supabase.from('placements').insert({
+		tree_id: null,
+		source: 'manual',
+		provisional: false,
+		...values
+	});
+	if (error) throw error;
+}
+
+/**
+ * Plantings still standing in a pot or a nursery bed — that is, whose newest
+ * placement is flagged provisional. Only the newest counts: a tree that spent
+ * two years in a holding row and has since been planted out is not waiting for
+ * anything.
+ *
+ * Resolved here rather than in SQL because it needs the latest row per target
+ * and a few hundred placements is not worth a view for.
+ */
+export async function fetchProvisionalPlantingIds(
+	plantingIds: string[]
+): Promise<Set<string>> {
+	const provisional = new Set<string>();
+	if (!plantingIds.length) return provisional;
+
+	const { data, error } = await supabase
+		.from('placements')
+		.select('planting_id, tree_id, provisional, occurred_on, created_at')
+		.in('planting_id', plantingIds)
+		.order('occurred_on', { ascending: false })
+		.order('created_at', { ascending: false });
+	if (error) throw error;
+
+	// Rows arrive newest first, so the first sighting of a target is the one in
+	// force and every later row for it is history.
+	const seen = new Set<string>();
+	for (const row of data ?? []) {
+		const key = `${row.planting_id}:${row.tree_id ?? ''}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		if (row.provisional) provisional.add(row.planting_id);
+	}
+
+	return provisional;
 }
 
 export async function fetchTags(): Promise<Tag[]> {

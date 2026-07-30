@@ -155,6 +155,39 @@ export const fi = {
 		noPosition: 'Ei sijaintia',
 		new: 'Uusi yksilö'
 	},
+	placement: {
+		one: 'Sijainti',
+		history: 'Sijaintihistoria',
+		move: 'Siirrä',
+		moveTitle: 'Siirtoistutus',
+		moveHelp:
+			'Kirjaa siirto vasta kun taimi on uudessa paikassaan. Vanha sijainti jää historiaan, eikä sitä korvata.',
+		correctionHelp:
+			'Jos sijainti oli vain kirjattu väärin, älä kirjaa siirtoa: korjaa sijainti kartalla tai GPS-painikkeella. Siirto on siirto vain, jos puu on oikeasti liikkunut.',
+		when: 'Siirron päivämäärä',
+		to: 'Uusi sijainti',
+		toGarden: 'Uusi puutarha',
+		useMyPosition: 'Käytä nykyistä sijaintiani',
+		note: 'Muistiinpano',
+		notePlaceholder: 'esim. purkista lopulliselle paikalle',
+		provisional: 'Väliaikainen paikka',
+		provisionalHelp:
+			'Purkki, kasvimaan taimirivi tai muu väliaikainen kasvatuspaikka. Taimi näkyy listalla, joka odottaa lopullista paikkaa.',
+		saved: 'Siirto kirjattu',
+		none: 'Sijaintia ei ole vielä kirjattu.',
+		onlyOne: 'Puu on ollut samassa paikassa kirjaamisesta asti.',
+		movedBy: (m: number) => `${Math.round(m)} m edellisestä paikasta`,
+		awaiting: 'Odottaa lopullista paikkaa',
+		awaitingHelp: 'Taimet, joiden viimeisin sijainti on merkitty väliaikaiseksi.',
+		awaitingNone: 'Kaikki taimet ovat lopullisilla paikoillaan.',
+		reasons: {
+			acquired: 'Hankittu',
+			planted: 'Istutettu',
+			moved: 'Siirretty',
+			corrected: 'Sijainti korjattu'
+		},
+		needsPosition: 'Anna ensin sijainti, niin siirrot voi kirjata.'
+	},
 	observation: {
 		one: 'Havainto',
 		many: 'Havainnot',

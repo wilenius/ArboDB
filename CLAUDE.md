@@ -48,6 +48,10 @@ component rather than by remembering:
 - **Finnish map material is EPSG:3067.** `src/lib/geo.ts` holds the transverse
   Mercator maths; there is no proj4 dependency. Project before computing areas,
   or hectares are wrong by the cosine of the latitude.
+- **`lat`/`lon` on trees and plantings is a cache, not the record.** Triggers
+  keep it equal to the newest row in `placements`. Writing coordinates directly
+  still works and logs itself as a `corrected` placement — but never write both,
+  and never insert a placement *and* update the cache in the same operation.
 
 ## Data model
 
@@ -61,6 +65,13 @@ A planting is a batch; a tree is an individually tracked specimen within it.
 Plantings with no trees are positioned by their own centroid. Status changes are
 stamped by a trigger rather than overwriting, so history accumulates for the
 timeline in spec §7.
+
+Position is history, in `placements`. The distinction the table exists for:
+`moved` means the tree is somewhere else, `corrected` means the record was
+wrong. Only the first belongs on a timeline, so anything showing movement
+filters on `MOVEMENT_REASONS`. A batch's centroid track is the rows with
+`tree_id is null`, and is only meaningful while the batch has no individually
+tracked specimens.
 
 ## Demo data
 

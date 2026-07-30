@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Plate from '$lib/components/Plate.svelte';
-	import { fetchPlantings } from '$lib/data';
+	import { fetchPlantings, fetchProvisionalPlantingIds } from '$lib/data';
 	import { gardens } from '$lib/gardens.svelte';
 	import { session } from '$lib/supabase';
 	import { scientificName } from '$lib/format';
@@ -14,6 +14,8 @@
 	let query = $state('');
 	let status = $state<PlantingStatus | 'all'>('all');
 	let origin = $state<'all' | 'planted' | 'original'>('all');
+	let awaitingOnly = $state(false);
+	let provisional = $state(new Set<string>());
 
 	$effect(() => {
 		if (!$session || !gardens.loaded) return;
@@ -25,6 +27,7 @@
 		loading = true;
 		try {
 			plantings = await fetchPlantings(gardens.active?.id);
+			provisional = await fetchProvisionalPlantingIds(plantings.map((p) => p.id));
 			error = '';
 		} catch {
 			error = t.errors.load;
@@ -33,8 +36,14 @@
 		}
 	}
 
+	/** Still in a pot or a holding row, and still alive to be planted out. */
+	const awaiting = $derived(
+		plantings.filter((p) => p.status === 'active' && provisional.has(p.id))
+	);
+
 	const filtered = $derived(
 		plantings.filter((p) => {
+			if (awaitingOnly && !(p.status === 'active' && provisional.has(p.id))) return false;
 			if (status !== 'all' && p.status !== status) return false;
 			if (origin !== 'all' && p.origin_type !== origin) return false;
 			const q = query.trim().toLowerCase();
@@ -112,6 +121,20 @@
 		</div>
 	</div>
 
+	<!-- Surfaced only when there is something waiting: a chip that is always
+	     there and always says nought is furniture, not a worklist. -->
+	{#if awaiting.length}
+		<button
+			class="awaiting no-print"
+			type="button"
+			aria-pressed={awaitingOnly}
+			onclick={() => (awaitingOnly = !awaitingOnly)}
+		>
+			<span>{t.placement.awaiting}</span>
+			<span class="data count">{awaiting.length}</span>
+		</button>
+	{/if}
+
 	<p class="tally data muted">
 		{totals.plantings} istutusta · {totals.specimens} tainta · {totals.trees} yksilöä
 	</p>
@@ -187,6 +210,32 @@
 		text-transform: uppercase;
 		color: var(--bark);
 		margin-bottom: 0.2rem;
+	}
+
+	.awaiting {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0 0 0.6rem;
+		padding: 0.35rem 0.7rem;
+		border: 1px solid var(--hairline-strong);
+		border-radius: var(--radius);
+		background: none;
+		color: var(--ink-soft);
+		font-family: var(--font-ui);
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.awaiting[aria-pressed='true'] {
+		border-color: var(--moss);
+		background: var(--moss-pale);
+		color: var(--ink);
+	}
+
+	.awaiting .count {
+		font-size: 0.75rem;
+		color: var(--bark);
 	}
 
 	.tally {
