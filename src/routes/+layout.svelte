@@ -5,12 +5,15 @@
 	import { page } from '$app/state';
 	import { initAuth, session, supabase } from '$lib/supabase';
 	import { gardens } from '$lib/gardens.svelte';
+	import { install } from '$lib/install.svelte';
 	import { t } from '$lib/i18n';
 
 	let { children } = $props();
 
 	// Anyone may read the published catalogue; everything else needs an account.
-	const PUBLIC_ROUTES = ['/kirjaudu', '/julkinen'];
+	// The install instructions are public too — being locked out of them on a
+	// fresh phone is exactly the wrong moment for a login wall.
+	const PUBLIC_ROUTES = ['/kirjaudu', '/julkinen', '/asenna'];
 
 	const isPublicRoute = $derived(
 		PUBLIC_ROUTES.some((r) => page.url.pathname === r || page.url.pathname.startsWith(r + '/'))
@@ -20,6 +23,9 @@
 
 	onMount(() => {
 		initAuth();
+		// Listen from the root so the install event is caught wherever the owner
+		// happens to land; it fires once and is not offered again.
+		install.start();
 		theme = (document.documentElement.dataset.theme as 'light' | 'dark') ?? 'light';
 	});
 

@@ -5,6 +5,7 @@
 	import { buildTargets, fetchMapLayers, fetchPlantings, targetKey } from '$lib/data';
 	import { gardens } from '$lib/gardens.svelte';
 	import { geo } from '$lib/geolocation.svelte';
+	import { install } from '$lib/install.svelte';
 	import { bearingDegrees, compassPoint } from '$lib/geo';
 	import { formatDistance } from '$lib/format';
 	import { t } from '$lib/i18n';
@@ -120,6 +121,19 @@
 		<p class="notice notice-error">{loadError}</p>
 	{/if}
 
+	<!-- Shown only where it can actually be acted on, and only until dismissed:
+	     field mode is the one screen the owner opens every time, so it is the
+	     one place the hint reaches him before he has an icon to tap. -->
+	{#if install.offerable && !install.dismissed}
+		<div class="install-hint no-print">
+			<span>{t.install.hint}</span>
+			<a class="btn btn-sm" href="/asenna">{t.install.hintAction}</a>
+			<button class="btn btn-sm" type="button" onclick={() => install.dismiss()}>
+				{t.install.dismiss}
+			</button>
+		</div>
+	{/if}
+
 	<div class="map-strip">
 		<MapView
 			targets={allTargets}
@@ -172,6 +186,24 @@
 </div>
 
 <style>
+	.install-hint {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0.75rem 0 0;
+		padding: 0.6rem 0.75rem;
+		border: 1px solid var(--hairline);
+		border-left: 3px solid var(--moss);
+		border-radius: var(--radius);
+		background: var(--paper-raised);
+		font-size: 0.875rem;
+	}
+
+	.install-hint span {
+		flex: 1 1 12rem;
+	}
+
 	.fix {
 		display: flex;
 		align-items: center;

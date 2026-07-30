@@ -49,6 +49,44 @@ export const fi = {
 		print: 'Tulosta',
 		confirmDelete: 'Poistetaanko pysyvästi?'
 	},
+	install: {
+		title: 'Asenna puhelimeen',
+		lead: 'Sovelluksen saa puhelimen aloitusnäytölle omaksi kuvakkeekseen. Se avautuu silloin ilman selaimen osoiterivia ja käynnistyy heti, myös heikolla kentällä.',
+		hint: 'Lisää sovellus puhelimen aloitusnäyttöön',
+		hintAction: 'Näytä ohje',
+		dismiss: 'Piilota',
+		button: 'Asenna nyt',
+		installing: 'Asennetaan…',
+		installed: 'Sovellus on jo asennettu tälle laitteelle.',
+		accepted: 'Valmis. Kuvake löytyy aloitusnäytöltä.',
+		declined: 'Asennus peruttiin. Voit palata tähän milloin tahansa.',
+		iosSafari: {
+			title: 'iPhone ja iPad',
+			steps: [
+				'Napauta selaimen alareunan Jaa-painiketta (neliö, jossa on ylöspäin osoittava nuoli).',
+				'Vieritä valikkoa alaspäin ja valitse "Lisää Koti-valikkoon".',
+				'Napauta oikeasta yläkulmasta "Lisää".'
+			]
+		},
+		iosOther: {
+			title: 'Avaa Safarilla',
+			body: 'Applen laitteilla vain Safari osaa lisätä sovelluksen aloitusnäytölle. Avaa tämä sivu Safarilla ja palaa tähän ohjeeseen.'
+		},
+		android: {
+			title: 'Android',
+			steps: [
+				'Avaa selaimen valikko oikeasta yläkulmasta (kolme pistettä).',
+				'Valitse "Asenna sovellus" tai "Lisää aloitusnäyttöön".',
+				'Vahvista valinta.'
+			]
+		},
+		desktop: {
+			title: 'Tietokone',
+			body: 'Osoiterivin oikeassa reunassa on asennuskuvake, jolla sovelluksen saa omaan ikkunaansa. Puhelimen kuvake on kuitenkin se, jota maastossa tarvitset.'
+		},
+		offlineNote:
+			'Asennettu sovellus käynnistyy ilman verkkoyhteyttä, mutta puiden tiedot haetaan silti palvelimelta. Metsässä ilman kenttää sovellus siis avautuu, mutta luettelo jää tyhjäksi.'
+	},
 	nearby: {
 		title: 'Olen puun vieressä',
 		locating: 'Haetaan sijaintia…',
