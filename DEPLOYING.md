@@ -360,6 +360,7 @@ cp .env.example .env
 PUBLIC_SUPABASE_URL=https://arbo.example.fi
 PUBLIC_SUPABASE_ANON_KEY=<the ANON_KEY from step 2>
 PUBLIC_MML_API_KEY=<your Maanmittauslaitos key>
+PUBLIC_LAJI_API_TOKEN=<your api.laji.fi application token>
 PUBLIC_MAP_CENTER_LAT=60.09336
 PUBLIC_MAP_CENTER_LON=23.02110
 PUBLIC_MAP_ZOOM=17

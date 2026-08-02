@@ -6,6 +6,7 @@
 	import { downloadCsv, downloadXlsx, stamped, type Column } from '$lib/exporter';
 	import { formatDateTime, formatMeasurement, scientificName } from '$lib/format';
 	import { t } from '$lib/i18n';
+	import { normalizeTaxonNames } from '$lib/taxa';
 	import type { Observation, Planting, Taxon } from '$lib/types';
 
 	// --- import ------------------------------------------------------------
@@ -109,12 +110,20 @@
 			);
 
 			for (const [i, row] of rows.entries()) {
-				const genus = cell(row, 'genus');
-				if (!genus) {
+				const rawGenus = cell(row, 'genus');
+				if (!rawGenus) {
 					importErrors.push(`Rivi ${i + 2}: suku puuttuu`);
 					continue;
 				}
-				const { species, rank, epithet } = parseSpecies(cell(row, 'species'));
+				const parsed = parseSpecies(cell(row, 'species'));
+				const { genus, species, infraspecific_rank: rank, infraspecific_epithet: epithet, name_fi } =
+					normalizeTaxonNames({
+						genus: rawGenus,
+						species: parsed.species,
+						infraspecific_rank: parsed.rank,
+						infraspecific_epithet: parsed.epithet,
+						name_fi: cell(row, 'name_fi') || null
+					});
 				const key = [genus, species, rank, epithet].filter(Boolean).join(' ').toLowerCase();
 
 				let taxonId = index.get(key);
@@ -126,7 +135,7 @@
 							species,
 							infraspecific_rank: rank,
 							infraspecific_epithet: epithet,
-							name_fi: cell(row, 'name_fi') || null
+							name_fi
 						})
 						.select('id')
 						.single();

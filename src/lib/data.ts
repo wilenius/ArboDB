@@ -194,6 +194,23 @@ export async function fetchObservations(opts: {
 	return data as unknown as Observation[];
 }
 
+export async function deleteObservation(observation: Observation): Promise<void> {
+	const paths = (observation.photos ?? []).flatMap((photo) =>
+		[photo.storage_path, photo.thumb_path].filter((path): path is string => Boolean(path))
+	);
+	const { error } = await supabase.from('observations').delete().eq('id', observation.id);
+	if (error) throw error;
+
+	// The record is the source of truth. If file cleanup fails, leave harmless
+	// orphan objects rather than a visible observation with broken photos.
+	if (paths.length) {
+		const { error: storageError } = await supabase.storage
+			.from('photos')
+			.remove([...new Set(paths)]);
+		if (storageError) console.error('Failed to remove observation photos', storageError);
+	}
+}
+
 export async function fetchPhotos(): Promise<Photo[]> {
 	const { data, error } = await supabase
 		.from('photos')

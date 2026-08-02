@@ -111,7 +111,13 @@
 	{:else}
 		<div class="stack">
 			{#each filtered as observation (observation.id)}
-				<ObservationCard {observation} showTarget />
+				<ObservationCard
+					{observation}
+					showTarget
+					ondeleted={(id) => {
+						observations = observations.filter((row) => row.id !== id);
+					}}
+				/>
 			{/each}
 		</div>
 	{/if}

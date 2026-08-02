@@ -2,6 +2,7 @@
 	import TagChip from './TagChip.svelte';
 	import SciName from './SciName.svelte';
 	import { publicUrl } from '$lib/supabase';
+	import { deleteObservation } from '$lib/data';
 	import { formatCoord, formatDateTime, formatMeasurement } from '$lib/format';
 	import { t } from '$lib/i18n';
 	import type { Observation } from '$lib/types';
@@ -11,20 +12,44 @@
 		showTarget = false,
 		selectable = false,
 		selected = false,
-		onselect
+		onselect,
+		ondeleted
 	}: {
 		observation: Observation;
 		showTarget?: boolean;
 		selectable?: boolean;
 		selected?: boolean;
 		onselect?: (checked: boolean) => void;
+		ondeleted?: (id: string) => void | Promise<void>;
 	} = $props();
+
+	let deleting = $state(false);
+	let deleteError = $state('');
 
 	const tags = $derived(
 		(observation.observation_tags ?? []).map((ot) => ot.tags).filter(Boolean)
 	);
 	const measurement = $derived(formatMeasurement(observation));
 	const photos = $derived(observation.photos ?? []);
+
+	async function remove() {
+		if (!confirm(t.common.confirmDelete)) return;
+		deleting = true;
+		deleteError = '';
+		try {
+			await deleteObservation(observation);
+		} catch {
+			deleteError = t.errors.delete;
+			deleting = false;
+			return;
+		}
+		try {
+			await ondeleted?.(observation.id);
+		} catch {
+			deleteError = t.errors.load;
+			deleting = false;
+		}
+	}
 </script>
 
 <article class="obs card" class:selected>
@@ -44,7 +69,14 @@
 		{#if measurement}
 			<span class="data measurement">{measurement}</span>
 		{/if}
+		{#if ondeleted}
+			<button class="link-btn danger delete no-print" type="button" onclick={remove} disabled={deleting}>
+				{deleting ? t.common.deleting : t.common.delete}
+			</button>
+		{/if}
 	</header>
+
+	{#if deleteError}<p class="notice notice-error delete-error">{deleteError}</p>{/if}
 
 	{#if showTarget}
 		{#if observation.plantings}
@@ -132,6 +164,18 @@
 		margin-left: auto;
 		color: var(--moss);
 		font-weight: 500;
+	}
+
+	.delete {
+		margin-left: auto;
+	}
+
+	.measurement + .delete {
+		margin-left: 0;
+	}
+
+	.delete-error {
+		margin: 0.5rem 0 0;
 	}
 
 	.target {

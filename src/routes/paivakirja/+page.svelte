@@ -109,7 +109,13 @@
 				<h2>{month.label}</h2>
 				<div class="stack">
 					{#each month.rows as observation (observation.id)}
-						<ObservationCard {observation} showTarget />
+						<ObservationCard
+							{observation}
+							showTarget
+							ondeleted={(id) => {
+								observations = observations.filter((row) => row.id !== id);
+							}}
+						/>
 					{/each}
 				</div>
 			</section>

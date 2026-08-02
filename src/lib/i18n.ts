@@ -35,6 +35,7 @@ export const fi = {
 		saved: 'Tallennettu',
 		cancel: 'Peruuta',
 		delete: 'Poista',
+		deleting: 'Poistetaan…',
 		edit: 'Muokkaa',
 		back: 'Takaisin',
 		add: 'Lisää',
@@ -133,7 +134,12 @@ export const fi = {
 		mustilaUrl: 'Mustilan sivu',
 		notes: 'Muistiinpanot',
 		new: 'Uusi taksoni',
-		openMustila: 'Avaa Mustilan sivu'
+		openMustila: 'Avaa Mustilan sivu',
+		plantingCount: 'Istutuksia',
+		plantedCount: 'Istutettuja yksilöitä',
+		lajiSearch: 'Hae Laji.fi:stä',
+		lajiSearchHelp: 'Valitse hakutulos esitäyttääksesi nimet. Tarkista tiedot ennen tallennusta.',
+		lajiNoResults: 'Laji.fi:stä ei löytynyt osumia.'
 	},
 	planting: {
 		one: 'Istutus',
@@ -512,6 +518,8 @@ export const fi = {
 		generic: 'Jokin meni pieleen. Yritä uudelleen.',
 		load: 'Tietojen lataus epäonnistui.',
 		save: 'Tallennus epäonnistui.',
+		delete: 'Poistaminen epäonnistui.',
+		taxonSearch: 'Laji.fi-haku epäonnistui.',
 		signIn: 'Kirjautuminen epäonnistui. Tarkista sähköposti ja salasana.',
 		upload: 'Kuvan lähetys epäonnistui.',
 		fileType: 'Tiedostotyyppiä ei tueta.',

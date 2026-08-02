@@ -124,6 +124,20 @@
 		selected = next;
 	}
 
+	function observationDeleted(id: string) {
+		const next = new Set(selected);
+		next.delete(id);
+		selected = next;
+		observations = observations.filter((row) => row.id !== id);
+		const tally: Record<string, number> = {};
+		for (const observation of observations) {
+			for (const link of observation.observation_tags ?? []) {
+				tally[link.tag_id] = (tally[link.tag_id] ?? 0) + 1;
+			}
+		}
+		usage = tally;
+	}
+
 	async function runBulk(add: boolean) {
 		if (!bulkTagId || !selected.size) return;
 		busy = true;
@@ -261,6 +275,7 @@
 						selectable
 						selected={selected.has(observation.id)}
 						onselect={(on) => toggleSelect(observation.id, on)}
+						ondeleted={observationDeleted}
 					/>
 				{/each}
 			</div>
